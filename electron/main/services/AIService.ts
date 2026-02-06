@@ -21,6 +21,16 @@ export interface AIProfile {
 }
 
 /**
+ * Prompt Template 数据结构
+ */
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+}
+
+/**
  * Provider 预设模板
  */
 export const PROVIDER_TEMPLATES: Record<AIProvider, { name: string; baseUrl: string; defaultModel: string }> = {
@@ -52,18 +62,68 @@ export const PROVIDER_TEMPLATES: Record<AIProvider, { name: string; baseUrl: str
 };
 
 /**
+ * 默认 Prompt Templates
+ */
+export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
+  {
+    id: 'tpl-weekly-1',
+    name: '周报 (标准版)',
+    description: '包含本周进展、下周计划和风险',
+    content: `你是一个专业的项目经理。请根据以下工作日志生成一份周报。
+
+格式要求：Markdown
+
+包含章节：
+1. **本周核心产出** (列出已完成的关键任务)
+2. **进行中的工作** (进度及预计完成时间)
+3. **风险与阻碍**
+4. **下周规划**
+
+语气：专业、客观。
+
+工作日志数据：
+{{logs}}
+
+请生成周报：`,
+  },
+  {
+    id: 'tpl-monthly-1',
+    name: '月报 (高层汇报)',
+    description: '关注里程碑和整体进度',
+    content: `你是一个高级技术负责人。请将以下工作日志汇总为一份月度汇报。
+
+重点关注：
+- 重大里程碑的达成
+- 关键技术突破
+- 整体项目健康度
+
+忽略琐碎的修复细节，只保留高价值产出。
+
+语气：自信、精简。
+
+工作日志数据：
+{{logs}}
+
+请生成月报：`,
+  },
+];
+
+/**
  * AI 服务类
  * 管理多模型配置文件的增删改查和连接测试
  */
 export class AIService {
-  private static readonly STORAGE_KEY = 'ai_profiles';
+  private static readonly PROFILES_KEY = 'ai_profiles';
+  private static readonly TEMPLATES_KEY = 'ai_templates';
+
+  // ==================== Profile 管理 ====================
 
   /**
    * 获取所有 AI Profiles
    */
   getProfiles(): AIProfile[] {
     try {
-      const data = settingsDB.get(AIService.STORAGE_KEY);
+      const data = settingsDB.get(AIService.PROFILES_KEY);
       if (!data) return [];
       return JSON.parse(data) as AIProfile[];
     } catch (error) {
@@ -83,7 +143,7 @@ export class AIService {
         return { success: false, error: '只能有一个激活的配置' };
       }
       
-      settingsDB.set(AIService.STORAGE_KEY, JSON.stringify(profiles));
+      settingsDB.set(AIService.PROFILES_KEY, JSON.stringify(profiles));
       return { success: true };
     } catch (error) {
       console.error('[AIService] Failed to save profiles:', error);
@@ -188,6 +248,112 @@ export class AIService {
     }
   }
 
+  // ==================== Prompt Template 管理 ====================
+
+  /**
+   * 获取所有 Prompt Templates
+   * 如果为空，自动初始化默认模板
+   */
+  getTemplates(): PromptTemplate[] {
+    try {
+      const data = settingsDB.get(AIService.TEMPLATES_KEY);
+      if (!data) {
+        // 初始化默认模板
+        this.saveTemplates(DEFAULT_PROMPT_TEMPLATES);
+        return DEFAULT_PROMPT_TEMPLATES;
+      }
+      return JSON.parse(data) as PromptTemplate[];
+    } catch (error) {
+      console.error('[AIService] Failed to get templates:', error);
+      return DEFAULT_PROMPT_TEMPLATES;
+    }
+  }
+
+  /**
+   * 保存所有 Prompt Templates
+   */
+  saveTemplates(templates: PromptTemplate[]): { success: boolean; error?: string } {
+    try {
+      settingsDB.set(AIService.TEMPLATES_KEY, JSON.stringify(templates));
+      return { success: true };
+    } catch (error) {
+      console.error('[AIService] Failed to save templates:', error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * 添加新 Template
+   */
+  addTemplate(template: Omit<PromptTemplate, 'id'>): { success: boolean; template?: PromptTemplate; error?: string } {
+    try {
+      const templates = this.getTemplates();
+      
+      const id = crypto.randomUUID();
+      const newTemplate: PromptTemplate = { ...template, id };
+      
+      templates.push(newTemplate);
+      
+      const result = this.saveTemplates(templates);
+      if (!result.success) {
+        return result;
+      }
+      
+      return { success: true, template: newTemplate };
+    } catch (error) {
+      console.error('[AIService] Failed to add template:', error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * 更新 Template
+   */
+  updateTemplate(templateId: string, updates: Partial<PromptTemplate>): { success: boolean; error?: string } {
+    try {
+      const templates = this.getTemplates();
+      const index = templates.findIndex(t => t.id === templateId);
+      
+      if (index === -1) {
+        return { success: false, error: 'Template not found' };
+      }
+      
+      templates[index] = { ...templates[index], ...updates };
+      return this.saveTemplates(templates);
+    } catch (error) {
+      console.error('[AIService] Failed to update template:', error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * 删除 Template
+   */
+  deleteTemplate(templateId: string): { success: boolean; error?: string } {
+    try {
+      const templates = this.getTemplates();
+      const filtered = templates.filter(t => t.id !== templateId);
+      
+      if (filtered.length === templates.length) {
+        return { success: false, error: 'Template not found' };
+      }
+      
+      return this.saveTemplates(filtered);
+    } catch (error) {
+      console.error('[AIService] Failed to delete template:', error);
+      return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * 重置为默认模板
+   */
+  resetTemplatesToDefault(): { success: boolean; error?: string } {
+    return this.saveTemplates(DEFAULT_PROMPT_TEMPLATES);
+  }
+
+  // ==================== AI 连接与报告生成 ====================
+
   /**
    * 测试 AI 连接
    */
@@ -269,18 +435,34 @@ export class AIService {
   }
 
   /**
-   * 生成报告（使用激活的 Profile）
+   * 生成报告
+   * @param logs 工作日志列表
+   * @param systemPrompt 系统提示词（Prompt Template 内容）
+   * @param profile 可选，指定使用的 AI Profile（不传则使用激活的 Profile）
    */
-  async generateReport(prompt: string): Promise<{
+  async generateReport(
+    logs: Array<{ task_key: string; summary: string; source: string; log_date: string }>,
+    systemPrompt: string,
+    profile?: AIProfile | null
+  ): Promise<{
     success: boolean;
     content?: string;
     error?: string;
   }> {
-    const profile = this.getActiveProfile();
+    const targetProfile = profile || this.getActiveProfile();
     
-    if (!profile) {
-      return { success: false, error: 'No active AI profile configured' };
+    if (!targetProfile) {
+      return { success: false, error: 'No AI profile configured' };
     }
+
+    // 构建日志文本
+    const logsText = logs.map(log => {
+      const prefix = log.source === 'JIRA' ? `[${log.task_key}]` : '[MANUAL]';
+      return `- ${log.log_date}: ${prefix} ${log.summary}`;
+    }).join('\n');
+
+    // 替换模板变量
+    const finalPrompt = systemPrompt.replace(/{{logs}}/g, logsText);
 
     try {
       const client = axios.create({
@@ -291,15 +473,18 @@ export class AIService {
       });
 
       const response = await client.post(
-        `${profile.baseUrl.replace(/\/$/, '')}/chat/completions`,
+        `${targetProfile.baseUrl.replace(/\/$/, '')}/chat/completions`,
         {
-          model: profile.model,
-          messages: [{ role: 'user', content: prompt }],
+          model: targetProfile.model,
+          messages: [
+            { role: 'system', content: 'You are a helpful assistant.' },
+            { role: 'user', content: finalPrompt }
+          ],
           temperature: 0.7,
         },
         {
           headers: {
-            'Authorization': `Bearer ${profile.apiKey}`,
+            'Authorization': `Bearer ${targetProfile.apiKey}`,
             'Content-Type': 'application/json',
           },
         }

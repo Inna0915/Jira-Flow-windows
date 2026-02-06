@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Calendar, Plus, Trash2, FileText, RefreshCw, Copy, Check } from 'lucide-react';
+import { 
+  Calendar, Plus, Trash2, FileText, RefreshCw, Copy, Check, 
+  Sparkles, X, Bot, Loader2
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   format,
@@ -24,6 +27,23 @@ interface WorkLog {
   created_at: number;
 }
 
+interface AIProfile {
+  id: string;
+  name: string;
+  provider: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  isActive: boolean;
+}
+
+interface PromptTemplate {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+}
+
 type DateRangePreset = 'today' | 'thisWeek' | 'lastWeek' | 'thisMonth';
 
 /**
@@ -34,6 +54,7 @@ type DateRangePreset = 'today' | 'thisWeek' | 'lastWeek' | 'thisMonth';
  * 2. 按日期分组显示日志
  * 3. 复制文本摘要
  * 4. 添加/删除手动记录
+ * 5. AI 报告生成
  */
 export function Reports() {
   const [logs, setLogs] = useState<WorkLog[]>([]);
@@ -46,10 +67,60 @@ export function Reports() {
   const [endDate, setEndDate] = useState<string>('');
   const [activePreset, setActivePreset] = useState<DateRangePreset>('thisWeek');
 
+  // AI 报告生成状态
+  const [aiProfiles, setAiProfiles] = useState<AIProfile[]>([]);
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
+  const [showGenerationModal, setShowGenerationModal] = useState(false);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  // 报告预览状态
+  const [generatedReport, setGeneratedReport] = useState<string>('');
+  const [showReportPreview, setShowReportPreview] = useState(false);
+
   // 初始化默认范围（本周）
   useEffect(() => {
     applyPreset('thisWeek');
+    loadAIProfiles();
+    loadPromptTemplates();
   }, []);
+
+  // 加载 AI Profiles
+  const loadAIProfiles = async () => {
+    try {
+      const result = await window.electronAPI.ai.getProfiles();
+      if (result.success) {
+        const profiles = result.data || [];
+        setAiProfiles(profiles);
+        // 默认选择激活的 profile
+        const active = profiles.find(p => p.isActive);
+        if (active) {
+          setSelectedProfileId(active.id);
+        } else if (profiles.length > 0) {
+          setSelectedProfileId(profiles[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('[Reports] Failed to load AI profiles:', error);
+    }
+  };
+
+  // 加载 Prompt Templates
+  const loadPromptTemplates = async () => {
+    try {
+      const result = await window.electronAPI.ai.getTemplates();
+      if (result.success) {
+        const templates = result.data || [];
+        setPromptTemplates(templates);
+        if (templates.length > 0 && !selectedTemplateId) {
+          setSelectedTemplateId(templates[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('[Reports] Failed to load prompt templates:', error);
+    }
+  };
 
   /**
    * 应用日期范围预设
@@ -224,6 +295,89 @@ export function Reports() {
   };
 
   /**
+   * 打开 AI 生成选项模态框
+   */
+  const handleOpenGenerationModal = () => {
+    if (logs.length === 0) {
+      toast.error('没有可用的工作日志');
+      return;
+    }
+    if (aiProfiles.length === 0) {
+      toast.error('请先配置 AI 模型');
+      return;
+    }
+    if (promptTemplates.length === 0) {
+      toast.error('没有可用的 Prompt Template');
+      return;
+    }
+    setShowGenerationModal(true);
+  };
+
+  /**
+   * 生成 AI 报告
+   */
+  const handleGenerateReport = async () => {
+    if (!selectedProfileId || !selectedTemplateId) {
+      toast.error('请选择 AI 模型和 Prompt Template');
+      return;
+    }
+
+    const template = promptTemplates.find(t => t.id === selectedTemplateId);
+    if (!template) {
+      toast.error('Prompt Template 不存在');
+      return;
+    }
+
+    setIsGenerating(true);
+    const loadingToast = toast.loading('正在生成报告...');
+
+    try {
+      // 准备日志数据
+      const logsForReport = logs.map(log => ({
+        task_key: log.task_key,
+        summary: log.summary,
+        source: log.source,
+        log_date: log.log_date,
+      }));
+
+      const result = await window.electronAPI.ai.generateReport(
+        logsForReport,
+        template.content,
+        selectedProfileId
+      );
+
+      toast.dismiss(loadingToast);
+
+      if (result.success) {
+        setGeneratedReport(result.content || '');
+        setShowGenerationModal(false);
+        setShowReportPreview(true);
+        toast.success('报告生成成功');
+      } else {
+        toast.error(`生成失败: ${result.error}`);
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error('[Reports] Failed to generate report:', error);
+      toast.error('生成报告失败');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  /**
+   * 复制生成的报告
+   */
+  const handleCopyGeneratedReport = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedReport);
+      toast.success('报告已复制到剪贴板');
+    } catch (err) {
+      toast.error('复制失败');
+    }
+  };
+
+  /**
    * 格式化日期显示（如：Friday, Feb 06）
    */
   const formatDateHeader = (dateStr: string): string => {
@@ -252,6 +406,9 @@ export function Reports() {
     return isSameDay(parseISO(dateStr), new Date());
   };
 
+  // 获取选中的模板描述
+  const selectedTemplate = promptTemplates.find(t => t.id === selectedTemplateId);
+
   return (
     <div className="flex h-full flex-col bg-[#F4F5F7]">
       {/* 顶部标题栏 */}
@@ -262,6 +419,16 @@ export function Reports() {
         </div>
         
         <div className="flex items-center gap-2">
+          {/* AI 生成报告按钮 */}
+          <button
+            onClick={handleOpenGenerationModal}
+            disabled={logs.length === 0}
+            className="flex items-center gap-1.5 rounded bg-gradient-to-r from-[#6554C0] to-[#8777D9] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Generate with AI
+          </button>
+
           <button
             onClick={handleCopySummary}
             disabled={logs.length === 0 || copied}
@@ -459,6 +626,155 @@ export function Reports() {
           </div>
         )}
       </div>
+
+      {/* AI 生成选项模态框 */}
+      {showGenerationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+            {/* 模态框头部 */}
+            <div className="flex items-center justify-between border-b border-[#DFE1E6] px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-[#6554C0]" />
+                <h2 className="text-lg font-semibold text-[#172B4D]">Generate Report with AI</h2>
+              </div>
+              <button
+                onClick={() => setShowGenerationModal(false)}
+                className="rounded p-1 text-[#5E6C84] hover:bg-[#F4F5F7]"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* 模态框内容 */}
+            <div className="px-6 py-4 space-y-4">
+              {/* AI 模型选择 */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
+                  AI Model
+                </label>
+                <select
+                  value={selectedProfileId}
+                  onChange={(e) => setSelectedProfileId(e.target.value)}
+                  className="w-full rounded-md border border-[#DFE1E6] bg-white px-3 py-2 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
+                >
+                  {aiProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name} {profile.isActive ? '(Active)' : ''} - {profile.model}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prompt Template 选择 */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
+                  Prompt Template
+                </label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="w-full rounded-md border border-[#DFE1E6] bg-white px-3 py-2 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
+                >
+                  {promptTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 模板描述预览 */}
+              {selectedTemplate && (
+                <div className="rounded-md bg-[#F4F5F7] p-3">
+                  <p className="text-xs text-[#5E6C84]">{selectedTemplate.description}</p>
+                </div>
+              )}
+
+              {/* 日志统计 */}
+              <div className="rounded-md border border-[#DFE1E6] bg-[#FAFBFC] p-3">
+                <div className="flex items-center gap-2 text-xs text-[#5E6C84]">
+                  <Bot className="h-4 w-4" />
+                  <span>将基于 <strong className="text-[#172B4D]">{logs.length}</strong> 条工作日志生成报告</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 模态框底部 */}
+            <div className="flex items-center justify-end gap-3 border-t border-[#DFE1E6] px-6 py-4">
+              <button
+                onClick={() => setShowGenerationModal(false)}
+                className="rounded border border-[#DFE1E6] bg-white px-4 py-2 text-sm font-medium text-[#172B4D] hover:bg-[#F4F5F7]"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleGenerateReport}
+                disabled={isGenerating || !selectedProfileId || !selectedTemplateId}
+                className="flex items-center gap-1.5 rounded bg-gradient-to-r from-[#6554C0] to-[#8777D9] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    开始生成
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 报告预览模态框 */}
+      {showReportPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-3xl max-h-[80vh] rounded-lg bg-white shadow-xl flex flex-col">
+            {/* 模态框头部 */}
+            <div className="flex items-center justify-between border-b border-[#DFE1E6] px-6 py-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-[#0052CC]" />
+                <h2 className="text-lg font-semibold text-[#172B4D]">Generated Report</h2>
+              </div>
+              <button
+                onClick={() => setShowReportPreview(false)}
+                className="rounded p-1 text-[#5E6C84] hover:bg-[#F4F5F7]"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* 报告内容 */}
+            <div className="flex-1 overflow-auto p-6">
+              <div className="prose prose-sm max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-sm text-[#172B4D] bg-[#FAFBFC] p-4 rounded-lg border border-[#DFE1E6]">
+                  {generatedReport}
+                </pre>
+              </div>
+            </div>
+
+            {/* 模态框底部 */}
+            <div className="flex items-center justify-end gap-3 border-t border-[#DFE1E6] px-6 py-4">
+              <button
+                onClick={() => setShowReportPreview(false)}
+                className="rounded border border-[#DFE1E6] bg-white px-4 py-2 text-sm font-medium text-[#172B4D] hover:bg-[#F4F5F7]"
+              >
+                关闭
+              </button>
+              <button
+                onClick={handleCopyGeneratedReport}
+                className="flex items-center gap-1.5 rounded bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6]"
+              >
+                <Copy className="h-4 w-4" />
+                复制报告
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

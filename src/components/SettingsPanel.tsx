@@ -4,7 +4,7 @@ import {
   Sparkles, Bot, Brain, Cloud, Settings, 
   Plus, Search, Trash2, Eye, EyeOff, 
   ExternalLink, TestTube, CheckCircle2, XCircle,
-  ChevronDown
+  ChevronDown, FileText, RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,6 +40,13 @@ interface ProviderTemplate {
   name: string;
   baseUrl: string;
   defaultModel: string;
+}
+
+interface PromptTemplate {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
 }
 
 const PROVIDER_ICONS: Record<AIProvider, React.ReactNode> = {
@@ -86,7 +93,7 @@ export function SettingsPanel() {
   const [showAddTemplate, setShowAddTemplate] = useState(false);
   const [providerTemplates, setProviderTemplates] = useState<Record<AIProvider, ProviderTemplate> | null>(null);
   
-  // 表单状态
+  // Profile 表单状态
   const [formData, setFormData] = useState<Partial<AIProfile>>({
     name: '',
     provider: 'moonshot',
@@ -98,12 +105,23 @@ export function SettingsPanel() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Prompt Template 设置
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [templateSearchQuery, setTemplateSearchQuery] = useState('');
+  const [templateFormData, setTemplateFormData] = useState<Partial<PromptTemplate>>({
+    name: '',
+    description: '',
+    content: '',
+  });
+
   useEffect(() => {
     loadConfig();
     loadSavedAvatars();
     loadObsidianConfig();
     loadAIProfiles();
     loadProviderTemplates();
+    loadPromptTemplates();
   }, []);
 
   const loadConfig = async () => {
@@ -181,7 +199,6 @@ export function SettingsPanel() {
       if (result.success) {
         const profiles = result.data || [];
         setAiProfiles(profiles);
-        // 如果有 profile，选择第一个
         if (profiles.length > 0 && !selectedProfileId) {
           setSelectedProfileId(profiles[0].id);
           setFormData(profiles[0]);
@@ -203,7 +220,7 @@ export function SettingsPanel() {
       baseUrl: template.baseUrl,
       apiKey: '',
       model: template.defaultModel,
-      isActive: aiProfiles.length === 0, // 第一个自动激活
+      isActive: aiProfiles.length === 0,
     };
 
     try {
@@ -315,12 +332,103 @@ export function SettingsPanel() {
     setConnectionStatus(null);
   };
 
+  // ===== Prompt Template 相关函数 =====
+
+  const loadPromptTemplates = async () => {
+    try {
+      const result = await window.electronAPI.ai.getTemplates();
+      if (result.success) {
+        const templates = result.data || [];
+        setPromptTemplates(templates);
+        if (templates.length > 0 && !selectedTemplateId) {
+          setSelectedTemplateId(templates[0].id);
+          setTemplateFormData(templates[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load prompt templates:', error);
+      toast.error('加载 Prompt Templates 失败');
+    }
+  };
+
+  const handleAddTemplate = () => {
+    const newTemplate: PromptTemplate = {
+      id: `temp-${Date.now()}`,
+      name: '新模板',
+      description: '请输入描述',
+      content: '你是一个专业的项目经理。请根据以下工作日志生成报告。\n\n工作日志数据：\n{{logs}}\n\n请生成报告：',
+    };
+    setPromptTemplates(prev => [...prev, newTemplate]);
+    setSelectedTemplateId(newTemplate.id);
+    setTemplateFormData(newTemplate);
+  };
+
+  const handleSaveTemplates = async () => {
+    try {
+      const result = await window.electronAPI.ai.saveTemplates(promptTemplates);
+      if (result.success) {
+        toast.success('模板已保存');
+      } else {
+        toast.error(result.error || '保存失败');
+      }
+    } catch (error) {
+      toast.error('保存模板失败');
+    }
+  };
+
+  const handleUpdateTemplate = (updates: Partial<PromptTemplate>) => {
+    if (!selectedTemplateId) return;
+    
+    setTemplateFormData(prev => ({ ...prev, ...updates }));
+    setPromptTemplates(prev => prev.map(t => 
+      t.id === selectedTemplateId ? { ...t, ...updates } as PromptTemplate : t
+    ));
+  };
+
+  const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const updated = promptTemplates.filter(t => t.id !== templateId);
+    setPromptTemplates(updated);
+    
+    if (selectedTemplateId === templateId) {
+      setSelectedTemplateId(updated.length > 0 ? updated[0].id : null);
+      setTemplateFormData(updated.length > 0 ? updated[0] : { name: '', description: '', content: '' });
+    }
+    
+    toast.success('模板已删除（点击保存以生效）');
+  };
+
+  const handleResetTemplates = async () => {
+    try {
+      const result = await window.electronAPI.ai.resetTemplates();
+      if (result.success && 'data' in result) {
+        setPromptTemplates(result.data);
+        setSelectedTemplateId(result.data[0]?.id || null);
+        setTemplateFormData(result.data[0] || { name: '', description: '', content: '' });
+        toast.success('已重置为默认模板');
+      } else if (!result.success && 'error' in result) {
+        toast.error(result.error || '重置失败');
+      }
+    } catch (error) {
+      toast.error('重置模板失败');
+    }
+  };
+
+  const handleSelectTemplate = (template: PromptTemplate) => {
+    setSelectedTemplateId(template.id);
+    setTemplateFormData(template);
+  };
+
   const filteredProfiles = aiProfiles.filter(p => 
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.provider.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const selectedProfile = aiProfiles.find(p => p.id === selectedProfileId);
+  const filteredTemplates = promptTemplates.filter(t =>
+    t.name.toLowerCase().includes(templateSearchQuery.toLowerCase()) ||
+    t.description.toLowerCase().includes(templateSearchQuery.toLowerCase())
+  );
 
   // ===== 头像相关函数 =====
 
@@ -574,7 +682,7 @@ export function SettingsPanel() {
 
             {/* 右侧：详情表单 */}
             <div className="flex-1 p-6 overflow-y-auto">
-              {!selectedProfile ? (
+              {!selectedProfileId ? (
                 <div className="h-full flex flex-col items-center justify-center text-[#5E6C84]">
                   <Bot className="h-12 w-12 mb-3 text-[#C1C7D0]" />
                   <p className="text-sm">选择或添加一个 AI 配置</p>
@@ -591,7 +699,7 @@ export function SettingsPanel() {
                         className="text-lg font-semibold text-[#172B4D] bg-transparent border-none focus:outline-none focus:ring-0 p-0"
                         placeholder="配置名称"
                       />
-                      {selectedProfile.isActive && (
+                      {aiProfiles.find(p => p.id === selectedProfileId)?.isActive && (
                         <span className="rounded bg-[#36B37E] px-2 py-0.5 text-[10px] font-bold text-white">
                           ACTIVE
                         </span>
@@ -601,7 +709,6 @@ export function SettingsPanel() {
                       href="#"
                       onClick={(e) => {
                         e.preventDefault();
-                        // 根据 provider 打开文档链接
                         const docs: Record<AIProvider, string> = {
                           openai: 'https://platform.openai.com/docs',
                           deepseek: 'https://platform.deepseek.com/docs',
@@ -706,6 +813,160 @@ export function SettingsPanel() {
                       className="rounded bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6]"
                     >
                       保存配置
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Prompt Templates 配置卡片 ===== */}
+        <div className="rounded-lg border border-[#DFE1E6] bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-[#DFE1E6] bg-[#FAFBFC] px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded bg-gradient-to-br from-[#6554C0] to-[#8777D9] text-white">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-semibold text-[#172B4D]">Prompt Templates</h3>
+              </div>
+              <button
+                onClick={handleResetTemplates}
+                className="flex items-center gap-1.5 text-xs text-[#5E6C84] hover:text-[#0052CC]"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                重置为默认
+              </button>
+            </div>
+          </div>
+
+          <div className="h-[500px] flex">
+            {/* 左侧：Template 列表 */}
+            <div className="w-[280px] border-r border-[#DFE1E6] bg-[#FAFBFC] flex flex-col">
+              {/* 搜索和添加 */}
+              <div className="p-3 border-b border-[#DFE1E6] space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5E6C84]" />
+                  <input
+                    type="text"
+                    value={templateSearchQuery}
+                    onChange={(e) => setTemplateSearchQuery(e.target.value)}
+                    placeholder="搜索模板..."
+                    className="w-full rounded border border-[#DFE1E6] bg-white pl-7 pr-2 py-1.5 text-xs text-[#172B4D] placeholder-[#C1C7D0] focus:border-[#4C9AFF] focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={handleAddTemplate}
+                  className="w-full flex items-center justify-center gap-1.5 rounded bg-[#6554C0] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#5243AA]"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  新建模板
+                </button>
+              </div>
+
+              {/* Template 列表 */}
+              <div className="flex-1 overflow-y-auto">
+                {filteredTemplates.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-[#5E6C84]">
+                    暂无模板
+                  </div>
+                ) : (
+                  filteredTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      onClick={() => handleSelectTemplate(template)}
+                      className={`group flex items-start gap-2 px-3 py-2.5 cursor-pointer border-b border-[#DFE1E6] hover:bg-white ${
+                        selectedTemplateId === template.id ? 'bg-white border-l-4 border-l-[#6554C0]' : 'border-l-4 border-l-transparent'
+                      }`}
+                    >
+                      <FileText className="h-4 w-4 text-[#6554C0] mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-[#172B4D] truncate">
+                          {template.name}
+                        </div>
+                        <div className="text-[10px] text-[#5E6C84] truncate">
+                          {template.description}
+                        </div>
+                      </div>
+                      
+                      {/* 删除按钮 */}
+                      <button
+                        onClick={(e) => handleDeleteTemplate(template.id, e)}
+                        className="p-1 rounded text-[#5E6C84] hover:bg-[#FFEBE6] hover:text-[#DE350B] opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* 右侧：编辑器 */}
+            <div className="flex-1 p-6 overflow-y-auto">
+              {!selectedTemplateId ? (
+                <div className="h-full flex flex-col items-center justify-center text-[#5E6C84]">
+                  <FileText className="h-12 w-12 mb-3 text-[#C1C7D0]" />
+                  <p className="text-sm">选择或创建一个 Prompt Template</p>
+                  <p className="text-xs text-[#8993A4] mt-1">
+                    使用 {'{{logs}}'} 作为工作日志的占位符
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* 模板名称 */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-[#5E6C84]">
+                      模板名称
+                    </label>
+                    <input
+                      type="text"
+                      value={templateFormData.name || ''}
+                      onChange={(e) => handleUpdateTemplate({ name: e.target.value })}
+                      placeholder="例如：周报（标准版）"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  {/* 模板描述 */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-[#5E6C84]">
+                      描述
+                    </label>
+                    <input
+                      type="text"
+                      value={templateFormData.description || ''}
+                      onChange={(e) => handleUpdateTemplate({ description: e.target.value })}
+                      placeholder="简要描述此模板的用途"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  {/* Prompt 内容 */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-[#5E6C84]">
+                      Prompt 内容
+                    </label>
+                    <textarea
+                      value={templateFormData.content || ''}
+                      onChange={(e) => handleUpdateTemplate({ content: e.target.value })}
+                      placeholder="输入系统提示词...使用 {{logs}} 作为工作日志的占位符"
+                      className={`${inputClass} min-h-[200px] resize-none font-mono text-xs`}
+                      rows={10}
+                    />
+                    <p className="mt-1.5 text-xs text-[#5E6C84]">
+                      提示：使用 {'{{logs}}'} 作为占位符，它将被替换为实际的工作日志数据
+                    </p>
+                  </div>
+
+                  {/* 保存按钮 */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleSaveTemplates}
+                      className="rounded bg-[#6554C0] px-4 py-2 text-sm font-medium text-white hover:bg-[#5243AA]"
+                    >
+                      保存模板
                     </button>
                   </div>
                 </div>

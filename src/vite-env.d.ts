@@ -202,8 +202,25 @@ declare interface ProviderTemplate {
   defaultModel: string;
 }
 
+// Prompt Template 类型
+declare interface PromptTemplate {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+}
+
+// Work Log 类型（用于报告生成）
+declare interface WorkLogForReport {
+  task_key: string;
+  summary: string;
+  source: 'JIRA' | 'MANUAL';
+  log_date: string;
+}
+
 // AI API 类型
 declare interface AIAPI {
+  // Profile 管理
   getProfiles: () => Promise<{ success: true; data: AIProfile[] } | { success: false; error: string }>;
   saveProfiles: (profiles: AIProfile[]) => Promise<{ success: boolean; error?: string }>;
   addProfile: (profile: Omit<AIProfile, 'id'>) => Promise<{ 
@@ -217,6 +234,22 @@ declare interface AIAPI {
   deleteProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
   setActiveProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
   getActiveProfile: () => Promise<{ success: true; data: AIProfile | null } | { success: false; error: string }>;
+  
+  // Prompt Template 管理
+  getTemplates: () => Promise<{ success: true; data: PromptTemplate[] } | { success: false; error: string }>;
+  saveTemplates: (templates: PromptTemplate[]) => Promise<{ success: boolean; error?: string }>;
+  addTemplate: (template: Omit<PromptTemplate, 'id'>) => Promise<{
+    success: true;
+    template: PromptTemplate;
+  } | {
+    success: false;
+    error: string;
+  }>;
+  updateTemplate: (templateId: string, updates: Partial<PromptTemplate>) => Promise<{ success: boolean; error?: string }>;
+  deleteTemplate: (templateId: string) => Promise<{ success: boolean; error?: string }>;
+  resetTemplates: () => Promise<{ success: true; data: PromptTemplate[] } | { success: false; error: string }>;
+  
+  // AI 连接与报告生成
   testConnection: (config: { baseUrl: string; apiKey: string; model: string }) => Promise<{
     success: true;
     latency: string;
@@ -224,7 +257,11 @@ declare interface AIAPI {
     success: false;
     error: string;
   }>;
-  generateReport: (prompt: string) => Promise<{
+  generateReport: (
+    logs: WorkLogForReport[],
+    systemPrompt: string,
+    profileId?: string
+  ) => Promise<{
     success: true;
     content: string;
   } | {
