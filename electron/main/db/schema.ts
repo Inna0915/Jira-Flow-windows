@@ -184,9 +184,16 @@ export const settingsDB = {
   },
 
   set(key: string, value: string): void {
-    getDatabase().prepare(
-      'INSERT OR REPLACE INTO t_settings (s_key, s_value) VALUES (?, ?)'
-    ).run(key, value);
+    try {
+      console.log('[settingsDB] Setting key:', key, 'value length:', value?.length);
+      getDatabase().prepare(
+        'INSERT OR REPLACE INTO t_settings (s_key, s_value) VALUES (?, ?)'
+      ).run(key, value);
+      console.log('[settingsDB] Set successful for key:', key);
+    } catch (error) {
+      console.error('[settingsDB] Failed to set key:', key, error);
+      throw error;
+    }
   },
 
   delete(key: string): void {

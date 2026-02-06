@@ -364,15 +364,27 @@ export function SettingsPanel() {
   };
 
   const handleSaveTemplates = async () => {
+    console.log('[Settings] Saving templates:', promptTemplates);
     try {
-      const result = await window.electronAPI.ai.saveTemplates(promptTemplates);
+      // 确保所有模板都有有效的 ID
+      const validTemplates = promptTemplates.map(t => ({
+        ...t,
+        id: t.id || crypto.randomUUID(),
+      }));
+      
+      const result = await window.electronAPI.ai.saveTemplates(validTemplates);
+      console.log('[Settings] Save result:', result);
+      
       if (result.success) {
         toast.success('模板已保存');
+        // 重新加载以确认保存成功
+        await loadPromptTemplates();
       } else {
         toast.error(result.error || '保存失败');
       }
     } catch (error) {
-      toast.error('保存模板失败');
+      console.error('[Settings] Failed to save templates:', error);
+      toast.error(`保存模板失败: ${error}`);
     }
   };
 

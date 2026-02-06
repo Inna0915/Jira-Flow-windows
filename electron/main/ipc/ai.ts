@@ -125,8 +125,10 @@ export function registerAIIPCs(): void {
    * 保存所有 Prompt Templates
    */
   ipcMain.handle('ai:save-templates', (_, templates: PromptTemplate[]) => {
+    console.log('[IPC] ai:save-templates called, templates count:', templates?.length);
     try {
       const result = aiService.saveTemplates(templates);
+      console.log('[IPC] ai:save-templates result:', result);
       return result;
     } catch (error) {
       console.error('[IPC] ai:save-templates error:', error);

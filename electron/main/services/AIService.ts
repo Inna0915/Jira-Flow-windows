@@ -274,7 +274,11 @@ export class AIService {
    */
   saveTemplates(templates: PromptTemplate[]): { success: boolean; error?: string } {
     try {
-      settingsDB.set(AIService.TEMPLATES_KEY, JSON.stringify(templates));
+      console.log('[AIService] Saving templates, count:', templates.length);
+      const jsonString = JSON.stringify(templates);
+      console.log('[AIService] JSON length:', jsonString.length);
+      settingsDB.set(AIService.TEMPLATES_KEY, jsonString);
+      console.log('[AIService] Templates saved successfully');
       return { success: true };
     } catch (error) {
       console.error('[AIService] Failed to save templates:', error);
