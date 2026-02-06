@@ -75,10 +75,18 @@ const jiraAPI = {
     ipcRenderer.invoke('jira:get-transitions', issueKey),
   
   /**
-   * 执行状态转换
+   * 执行状态转换（旧接口，保留兼容）
    */
   transitionIssue: (issueKey, transitionId) =>
-    ipcRenderer.invoke('jira:transition-issue', issueKey, transitionId),
+    ipcRenderer.invoke('jira:transition-issue-legacy', issueKey, transitionId),
+  
+  /**
+   * 拖拽卡片时同步 Jira 状态
+   * @param key 任务 Key
+   * @param targetColumn 目标列 ID (todo/inprogress/review/done)
+   */
+  transitionIssueByColumn: (key, targetColumn) =>
+    ipcRenderer.invoke('jira:transition-issue', { key, targetColumn }),
 };
 
 // 看板 API（基于 SyncService 的高级操作）

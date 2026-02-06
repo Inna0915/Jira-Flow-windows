@@ -138,6 +138,20 @@ declare interface JiraAPI {
     error: string;
   }>;
   transitionIssue: (issueKey: string, transitionId: string) => Promise<{ success: boolean; error?: string }>;
+  
+  /**
+   * 拖拽卡片时同步 Jira 状态
+   * @param key 任务 Key
+   * @param targetColumn 目标列 ID
+   */
+  transitionIssueByColumn: (key: string, targetColumn: string) => Promise<{
+    success: true;
+    newStatus?: string;
+  } | {
+    success: false;
+    error: string;
+    code?: string;
+  }>;
 }
 
 // 看板 API 类型

@@ -63,13 +63,43 @@ export function Board() {
     const previousTasks = [...tasks];
     moveTask(draggableId, targetColumn);
 
-    // 后台同步
+    // 后台同步 - 先更新本地数据库
     try {
       const updateResult = await updateTaskColumn(draggableId, targetColumn);
       
       if (!updateResult) {
         throw new Error('更新数据库失败');
       }
+
+      // ===== Jira 状态同步 (Reverse Sync) =====
+      // 异步同步 Jira 状态，失败时回滚
+      const jiraSyncPromise = window.electronAPI.jira.transitionIssueByColumn(draggableId, targetColumn);
+      
+      jiraSyncPromise.then((result) => {
+        if (result.success) {
+          toast.success(`Jira updated: ${task.key} → ${result.newStatus || targetColumn}`, {
+            duration: 2000,
+          });
+        } else {
+          // Jira 同步失败，回滚本地状态
+          console.error('[Board] Jira sync failed:', result.error);
+          setTasks(previousTasks);
+          
+          if (result.code === 'RESOLUTION_REQUIRED') {
+            toast.error('Please update this status in Jira directly (Complex screen required).', {
+              duration: 5000,
+            });
+          } else {
+            toast.error(`Jira sync failed: ${result.error || 'Unknown error'}`, {
+              duration: 5000,
+            });
+          }
+        }
+      }).catch((err) => {
+        console.error('[Board] Jira sync error:', err);
+        setTasks(previousTasks);
+        toast.error('Jira sync failed, reverted local change');
+      });
 
       toast.success(`任务已移动到 ${targetColumn}`);
 
