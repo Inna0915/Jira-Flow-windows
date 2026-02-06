@@ -14,6 +14,10 @@ interface AvatarSettings {
   image: string;
 }
 
+interface ObsidianConfig {
+  vaultPath: string;
+}
+
 export function SettingsPanel() {
   const [jiraConfig, setJiraConfig] = useState<JiraConfig>({
     host: '',
@@ -30,9 +34,15 @@ export function SettingsPanel() {
   const [savedAvatars, setSavedAvatars] = useState<AvatarSettings[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Obsidian 设置
+  const [obsidianConfig, setObsidianConfig] = useState<ObsidianConfig>({
+    vaultPath: '',
+  });
+
   useEffect(() => {
     loadConfig();
     loadSavedAvatars();
+    loadObsidianConfig();
   }, []);
 
   const loadConfig = async () => {
@@ -49,6 +59,31 @@ export function SettingsPanel() {
       }
     } catch (error) {
       console.error('Failed to load config:', error);
+    }
+  };
+
+  const loadObsidianConfig = async () => {
+    try {
+      const result = await window.electronAPI.obsidian.getVaultPath();
+      if (result.success) {
+        setObsidianConfig({ vaultPath: result.data });
+      }
+    } catch (error) {
+      console.error('Failed to load Obsidian config:', error);
+    }
+  };
+
+  const handleSaveObsidianConfig = async () => {
+    try {
+      const result = await window.electronAPI.obsidian.setVaultPath(obsidianConfig.vaultPath);
+      if (result.success) {
+        toast.success('Obsidian Vault 路径已保存');
+      } else {
+        toast.error('保存失败');
+      }
+    } catch (error) {
+      console.error('Failed to save Obsidian config:', error);
+      toast.error('保存失败');
     }
   };
 
@@ -292,6 +327,45 @@ export function SettingsPanel() {
                 className="rounded bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6] disabled:opacity-50"
               >
                 {isSaving ? '保存中...' : '保存配置'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Obsidian 集成配置 */}
+        <div className="rounded-lg border border-[#DFE1E6] bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-[#E3FCEF] text-[#006644]">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-[#172B4D]">Obsidian 集成</h3>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
+                Vault 路径
+              </label>
+              <input
+                type="text"
+                value={obsidianConfig.vaultPath}
+                onChange={(e) => setObsidianConfig(prev => ({ ...prev, vaultPath: e.target.value }))}
+                placeholder="C:\Users\YourName\Documents\Obsidian Vault"
+                className={inputClass}
+              />
+              <p className="mt-1.5 text-xs text-[#5E6C84]">
+                设置 Obsidian Vault 的本地路径。完成的任务将自动同步到此目录的 Markdown 文件。
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleSaveObsidianConfig}
+                className="rounded bg-[#36B37E] px-4 py-2 text-sm font-medium text-white hover:bg-[#2EA36A]"
+              >
+                保存路径
               </button>
             </div>
           </div>

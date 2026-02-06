@@ -1,7 +1,7 @@
 # Project Name: Jira-Flow (Desktop Workbench)
 
 ## 1. Project Overview
-A local-first, Windows-focused desktop application built with Electron. It serves as a developer workbench to synchronize Jira tasks, visualize them in a highly customized Kanban board (Agile Hive style), log daily work, and generate AI-powered reports.
+A local-first, Windows-focused desktop application built with Electron. It serves as a developer workbench to synchronize Jira tasks, visualize them in a highly customized Kanban board (Agile Hive style), log daily work (Auto & Manual), sync to Obsidian, and generate AI reports.
 
 ## 2. Tech Stack & Architecture
 - **Runtime**: Electron (latest) with Multi-window support.
@@ -14,49 +14,53 @@ A local-first, Windows-focused desktop application built with Electron. It serve
 
 ### A. Data Sync & Mapping
 - **Sprint Logic**: Auto-select the first sprint where `state` is `'active'`.
-- **Date Mapping**:
-  - Primary Source: **`customfield_10329`** (Planned End Date).
-  - Fallback: Standard `duedate`.
-  - Database Field: Store as `due_date` (YYYY-MM-DD).
+- **Date Mapping**: Primary: `customfield_10329` (Planned End). Fallback: `duedate`.
 
-### B. Avatar System (Strict)
+### B. Avatar System
 - **Source**: `t_settings` (`user_avatar_base64`).
-- **Format**: MUST include prefix `data:image/png;base64,...`.
-- **Display**: Custom Image > Identicon/Initials > **NEVER** use Jira URL.
+- **Display**: Custom Image > Identicon/Initials > **NEVER** Jira URL.
 
-### C. Swimlane Logic (Refined v2.2)
-The board groups tasks into 3 strict categories based on `due_date`:
-1.  **Overdue (已超期)**: 
-    - `due_date` IS NOT NULL
-    - AND `due_date < Today`
-    - AND `status` != Done/Closed.
-2.  **On Schedule (按期执行)**: 
-    - `due_date` IS NOT NULL
-    - AND `due_date >= Today`.
-    - (Replaces the old "Due Soon" logic).
-3.  **Others (未排期/其他)**: 
-    - `due_date` IS NULL.
+### C. Swimlane Logic (Strict)
+1. **Overdue**: `due_date < Today` AND status != Done/Closed.
+2. **On Schedule**: `due_date >= Today`.
+3. **Others**: `due_date` IS NULL.
 
-### D. Column Mapping (Fixed Order)
-`FUNNEL`, `DEFINING`, `READY`, `TO DO`, `EXECUTION`, `EXECUTED`, `TESTING & REVIEW`, `TEST DONE`, `VALIDATING`, `RESOLVED`, `DONE`, `CLOSED`.
+### D. Work Logging (Auto & Manual)
+- **Auto-Trigger**: 
+  - Story -> `DONE`
+  - Bug -> `VALIDATING`
+- **Logic**: Insert into `t_work_logs`. 
+- **Constraint**: `UNIQUE(task_key, log_date)` to prevent duplicates on the same day.
+- **Content**: Pure Task Title (No "Moved to..." text).
+- **Manual Logs**: Supported via Reports Page (Source: 'MANUAL').
+
+### E. Obsidian Integration
+- **Trigger**: Same as Work Logging (Done/Validating).
+- **Logic**: 
+  - Check `vault_path` in settings.
+  - If file exists: Update **Frontmatter ONLY** (Status, Date). Preserve Body.
+  - If new: Create `[Key] Summary.md` with Frontmatter + Description.
 
 ## 4. UI Design Specs (Agile Hive Replica)
 
-### A. Board Styling
-- **Canvas**: `#F4F5F7`.
-- **Grid**: Columns must have `min-w-[280px]` to prevent squashing, with right-border separators.
-- **Headers**: Uppercase, `text-[11px]`, `font-bold`, `text-[#6B778C]`.
+### A. Board Layout (Unified Scroll)
+- **Structure**: Single outer scroll container. Inner "Canvas" forces full width.
+- **Columns**: Fixed width (`min-w-[280px]`) to ensure alignment across swimlanes.
+- **Headers**: Sticky Top (`sticky top-0 z-10`).
 
-### B. Swimlane Styling
-- **Overdue**: Red background (`bg-[#FFEBE6]`), Text Red.
-- **On Schedule**: Green/Teal background (`bg-[#E6FCFF]`), Text Dark Teal.
-- **Others**: Neutral Gray background (`bg-[#F4F5F7]`).
-
-### C. Task Card
-- **Story**: Blue Key, "UNCOVERED" badge.
-- **Bug**: Red vertical left-strip.
-- **Content**: Summary & Sprint Tag must truncate (`text-ellipsis`) to avoid overflow.
-- **Interaction**: Click -> Right Drawer.
+### B. Styling
+- **Swimlanes**: 
+  - Overdue: Red (`#FFEBE6`). 
+  - On Schedule: Teal/Green (`#E6FCFF`). 
+  - Others: Gray (`#F4F5F7`).
+- **Cards**: 
+  - Story: Blue Key, "UNCOVERED" badge.
+  - Bug: Red left-strip.
+  - Content: Truncated Summary & Sprint Tag.
 
 ## 5. Database Schema (Reference)
-- `t_tasks`: key, summary, status, assignee_name, issuetype, due_date (from customfield), priority, sprint_state.
+- `t_tasks`: key, summary, status, assignee_name, issuetype, due_date, priority, sprint_state.
+- `t_work_logs`: 
+  - `id`, `task_key`, `source` ('JIRA'/'MANUAL'), `summary`, `log_date`.
+  - **Constraint**: `UNIQUE(task_key, log_date)`.
+- `t_settings`: s_key, s_value (includes `obsidian_vault_path`).
