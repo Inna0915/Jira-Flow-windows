@@ -188,23 +188,5 @@ export function registerIssueIPCs(): void {
     }
   });
 
-  /**
-   * 获取任务的可用状态转换
-   */
-  ipcMain.handle('jira:get-transitions', async (_, issueKey: string) => {
-    const client = getJiraClient();
-    if (!client) {
-      return { success: false, error: 'Jira not configured' };
-    }
-
-    try {
-      const result = await client.getTransitions(issueKey);
-      return result;
-    } catch (error) {
-      console.error('[IPC] Get transitions error:', error);
-      return { success: false, error: String(error) };
-    }
-  });
-
   console.log('[IPC] Issue IPC handlers registered');
 }
