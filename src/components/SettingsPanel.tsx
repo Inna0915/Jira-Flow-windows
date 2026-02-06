@@ -479,30 +479,37 @@ export function SettingsPanel() {
     }
 
     try {
+      // 1. 保存头像图片到独立 key
       await window.electronAPI.database.settings.set(
         `avatar_${trimmedName}`,
         avatarPreview
       );
 
+      // 2. 更新头像列表
       const newAvatar: AvatarSettings = { name: trimmedName, image: avatarPreview };
       const filtered = savedAvatars.filter(a => a.name !== trimmedName);
       const updated = [...filtered, newAvatar];
       
+      // 3. 先更新状态（立即显示）
       setSavedAvatars(updated);
+      
+      // 4. 保存到数据库
       await window.electronAPI.database.settings.set(
         'saved_avatars',
         JSON.stringify(updated)
       );
 
+      // 5. 重置表单
       setAvatarName('');
       setAvatarPreview(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
 
+      console.log('[Avatar] Saved, total avatars:', updated.length);
       toast.success(`头像 "${trimmedName}" 保存成功！`);
     } catch (error) {
-      console.error('Failed to save avatar:', error);
+      console.error('[Avatar] Failed to save:', error);
       toast.error('保存失败');
     }
   };
@@ -1187,35 +1194,36 @@ export function SettingsPanel() {
               </div>
             </div>
 
-            {savedAvatars.length > 0 && (
-              <div>
-                <h4 className="mb-3 text-sm font-medium text-[#5E6C84]">已保存的头像 ({savedAvatars.length}个)</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {savedAvatars.map((avatar) => (
-                    <div
-                      key={avatar.name}
-                      className="flex flex-col items-center rounded-lg border border-[#DFE1E6] bg-white p-3"
+            {/* 已保存的头像列表 */}
+            <div className={savedAvatars.length > 0 ? '' : 'hidden'}>
+              <h4 className="mb-3 text-sm font-medium text-[#5E6C84]">
+                已保存的头像 ({savedAvatars.length}个)
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {savedAvatars.map((avatar, index) => (
+                  <div
+                    key={`${avatar.name}-${index}`}
+                    className="flex flex-col items-center rounded-lg border border-[#DFE1E6] bg-white p-3"
+                  >
+                    <img
+                      src={avatar.image}
+                      alt={avatar.name}
+                      className="mb-2 h-14 w-14 rounded-full object-cover border border-[#DFE1E6]"
+                    />
+                    <span className="mb-2 max-w-full truncate text-xs font-medium text-[#172B4D]">
+                      {avatar.name}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteAvatar(avatar.name)}
+                      className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[#FF5630] hover:bg-[#FFEBE6]"
                     >
-                      <img
-                        src={avatar.image}
-                        alt={avatar.name}
-                        className="mb-2 h-14 w-14 rounded-full object-cover border border-[#DFE1E6]"
-                      />
-                      <span className="mb-2 max-w-full truncate text-xs font-medium text-[#172B4D]">
-                        {avatar.name}
-                      </span>
-                      <button
-                        onClick={() => handleDeleteAvatar(avatar.name)}
-                        className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[#FF5630] hover:bg-[#FFEBE6]"
-                      >
-                        <X className="h-3 w-3" />
-                        删除
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                      <X className="h-3 w-3" />
+                      删除
+                    </button>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
