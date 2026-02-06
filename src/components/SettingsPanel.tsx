@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   User, Upload, X, Check, FolderKanban, 
   Sparkles, Bot, Brain, Cloud, Settings, 
@@ -109,11 +109,11 @@ export function SettingsPanel() {
   const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [templateSearchQuery, setTemplateSearchQuery] = useState('');
-  const [templateFormData, setTemplateFormData] = useState<Partial<PromptTemplate>>({
-    name: '',
-    description: '',
-    content: '',
-  });
+  
+  // 从 promptTemplates 和 selectedTemplateId 计算当前选中的模板
+  const selectedTemplate = useMemo(() => {
+    return promptTemplates.find(t => t.id === selectedTemplateId) || null;
+  }, [promptTemplates, selectedTemplateId]);
 
   useEffect(() => {
     loadConfig();
@@ -342,7 +342,6 @@ export function SettingsPanel() {
         setPromptTemplates(templates);
         if (templates.length > 0 && !selectedTemplateId) {
           setSelectedTemplateId(templates[0].id);
-          setTemplateFormData(templates[0]);
         }
       }
     } catch (error) {
@@ -360,7 +359,6 @@ export function SettingsPanel() {
     };
     setPromptTemplates(prev => [...prev, newTemplate]);
     setSelectedTemplateId(newTemplate.id);
-    setTemplateFormData(newTemplate);
   };
 
   const handleSaveTemplates = async () => {
@@ -397,12 +395,6 @@ export function SettingsPanel() {
       return;
     }
     
-    setTemplateFormData(prev => {
-      const newData = { ...prev, ...updates };
-      console.log('[Settings] Updated templateFormData:', newData);
-      return newData;
-    });
-    
     setPromptTemplates(prev => {
       const updated = prev.map(t => 
         t.id === selectedTemplateId ? { ...t, ...updates } as PromptTemplate : t
@@ -420,7 +412,6 @@ export function SettingsPanel() {
     
     if (selectedTemplateId === templateId) {
       setSelectedTemplateId(updated.length > 0 ? updated[0].id : null);
-      setTemplateFormData(updated.length > 0 ? updated[0] : { name: '', description: '', content: '' });
     }
     
     toast.success('模板已删除（点击保存以生效）');
@@ -432,7 +423,6 @@ export function SettingsPanel() {
       if (result.success && 'data' in result) {
         setPromptTemplates(result.data);
         setSelectedTemplateId(result.data[0]?.id || null);
-        setTemplateFormData(result.data[0] || { name: '', description: '', content: '' });
         toast.success('已重置为默认模板');
       } else if (!result.success && 'error' in result) {
         toast.error(result.error || '重置失败');
@@ -445,7 +435,6 @@ export function SettingsPanel() {
   const handleSelectTemplate = (template: PromptTemplate) => {
     console.log('[Settings] Selecting template:', template.id, template.name);
     setSelectedTemplateId(template.id);
-    setTemplateFormData({ ...template });
   };
 
   const filteredProfiles = aiProfiles.filter(p => 
@@ -940,7 +929,7 @@ export function SettingsPanel() {
 
             {/* 右侧：编辑器 */}
             <div className="flex-1 p-6 overflow-y-auto">
-              {!selectedTemplateId ? (
+              {!selectedTemplate ? (
                 <div className="h-full flex flex-col items-center justify-center text-[#5E6C84]">
                   <FileText className="h-12 w-12 mb-3 text-[#C1C7D0]" />
                   <p className="text-sm">选择或创建一个 Prompt Template</p>
@@ -957,7 +946,7 @@ export function SettingsPanel() {
                     </label>
                     <input
                       type="text"
-                      value={templateFormData.name || ''}
+                      value={selectedTemplate?.name || ''}
                       onChange={(e) => handleUpdateTemplate({ name: e.target.value })}
                       placeholder="例如：周报（标准版）"
                       className={inputClass}
@@ -971,7 +960,7 @@ export function SettingsPanel() {
                     </label>
                     <input
                       type="text"
-                      value={templateFormData.description || ''}
+                      value={selectedTemplate?.description || ''}
                       onChange={(e) => handleUpdateTemplate({ description: e.target.value })}
                       placeholder="简要描述此模板的用途"
                       className={inputClass}
@@ -984,7 +973,7 @@ export function SettingsPanel() {
                       Prompt 内容
                     </label>
                     <textarea
-                      value={templateFormData.content || ''}
+                      value={selectedTemplate?.content || ''}
                       onChange={(e) => handleUpdateTemplate({ content: e.target.value })}
                       placeholder="输入系统提示词...使用 {{logs}} 作为工作日志的占位符"
                       className={`${inputClass} min-h-[200px] resize-none font-mono text-xs`}
