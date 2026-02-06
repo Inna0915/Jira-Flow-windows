@@ -77,7 +77,7 @@ export function Reports() {
       });
 
       if (result.success) {
-        toast.success('已添加记录');
+        toast.success('Manual task added');
         setManualContent('');
         await loadLogs();
       } else {
@@ -90,11 +90,9 @@ export function Reports() {
   };
 
   /**
-   * 删除日志
+   * 删除日志（无确认对话框）
    */
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这条记录吗？')) return;
-
     try {
       const result = await window.electronAPI.database.query(
         'DELETE FROM t_work_logs WHERE id = ?',
@@ -102,7 +100,7 @@ export function Reports() {
       );
       
       if (result.success) {
-        toast.success('已删除');
+        toast.success('Log deleted');
         await loadLogs();
       } else {
         toast.error('删除失败');
@@ -170,14 +168,14 @@ export function Reports() {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="rounded border border-[#DFE1E6] px-3 py-1.5 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
+            className="rounded-md border border-[#DFE1E6] bg-white px-3 py-1.5 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none focus:ring-1 focus:ring-[#4C9AFF]"
           />
           <span className="text-[#5E6C84]">至</span>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="rounded border border-[#DFE1E6] px-3 py-1.5 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
+            className="rounded-md border border-[#DFE1E6] bg-white px-3 py-1.5 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none focus:ring-1 focus:ring-[#4C9AFF]"
           />
         </div>
 
@@ -185,12 +183,13 @@ export function Reports() {
         <div className="mb-6 rounded-lg bg-white p-4 shadow-sm">
           <h2 className="mb-3 text-sm font-medium text-[#172B4D]">Add non-Jira task...</h2>
           <div className="flex gap-3">
+            {/* Shadcn Input 风格 */}
             <input
               type="text"
               value={manualContent}
               onChange={(e) => setManualContent(e.target.value)}
               placeholder="输入非 Jira 任务内容..."
-              className="flex-1 rounded border border-[#DFE1E6] px-3 py-2 text-sm text-[#172B4D] placeholder:text-[#C1C7D0] focus:border-[#4C9AFF] focus:outline-none"
+              className="flex-1 rounded-md border border-[#DFE1E6] bg-white px-3 py-2 text-sm text-[#172B4D] placeholder:text-[#C1C7D0] focus:border-[#4C9AFF] focus:outline-none focus:ring-1 focus:ring-[#4C9AFF] disabled:cursor-not-allowed disabled:opacity-50"
               onKeyDown={(e) => e.key === 'Enter' && handleAddManual()}
             />
             <button
@@ -234,10 +233,10 @@ export function Reports() {
                       key={log.id}
                       className="flex items-center justify-between px-4 py-3 hover:bg-[#F4F5F7]"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         {/* 来源标签 */}
                         <span
-                          className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                          className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold ${
                             log.source === 'JIRA'
                               ? 'bg-[#E3FCEF] text-[#006644]'
                               : 'bg-[#EAE6FF] text-[#403294]'
@@ -246,21 +245,26 @@ export function Reports() {
                           {log.source}
                         </span>
 
-                        {/* 任务 Key (Jira 任务) */}
+                        {/* Jira 任务：显示 Key (蓝色链接风格) + Summary */}
                         {log.source === 'JIRA' && (
-                          <span className="text-xs font-medium text-[#0052CC]">
-                            {log.task_key}
-                          </span>
+                          <>
+                            <span className="shrink-0 text-xs font-medium text-[#0052CC]">
+                              {log.task_key}
+                            </span>
+                            <span className="truncate text-sm text-[#172B4D]">{log.summary}</span>
+                          </>
                         )}
 
-                        {/* 摘要 */}
-                        <span className="text-sm text-[#172B4D]">{log.summary}</span>
+                        {/* Manual 任务：只显示 Content */}
+                        {log.source === 'MANUAL' && (
+                          <span className="truncate text-sm text-[#172B4D]">{log.summary}</span>
+                        )}
                       </div>
 
                       {/* 删除按钮 */}
                       <button
                         onClick={() => handleDelete(log.id)}
-                        className="rounded p-1.5 text-[#5E6C84] hover:bg-[#FFEBE6] hover:text-[#DE350B]"
+                        className="ml-2 shrink-0 rounded p-1.5 text-[#5E6C84] hover:bg-[#FFEBE6] hover:text-[#DE350B]"
                         title="删除"
                       >
                         <Trash2 className="h-4 w-4" />

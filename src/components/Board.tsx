@@ -79,10 +79,11 @@ export function Board() {
       
       if (shouldLog) {
         // 后台异步记录，不阻塞 UI
+        // 格式: [KEY] Task Title（纯净的任务标题，不包含状态文本）
         const today = new Date().toISOString().split('T')[0];
         window.electronAPI.database.workLogs.logAutoJira({
           task_key: task.key,
-          summary: task.summary,
+          summary: `${task.key} ${task.summary}`,
           log_date: today,
         }).then((result) => {
           if (result.isNew) {
