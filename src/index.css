@@ -4,48 +4,38 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Jira Light Theme Colors */
+    --background: #F4F5F7;
+    --foreground: #172B4D;
+    --card: #FFFFFF;
+    --card-foreground: #172B4D;
+    --popover: #FFFFFF;
+    --popover-foreground: #172B4D;
+    --primary: #0052CC;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F4F5F7;
+    --secondary-foreground: #172B4D;
+    --muted: #F4F5F7;
+    --muted-foreground: #5E6C84;
+    --accent: #DEEBFF;
+    --accent-foreground: #0747A6;
+    --destructive: #FF5630;
+    --destructive-foreground: #FFFFFF;
+    --border: #DFE1E6;
+    --input: #DFE1E6;
+    --ring: #4C9AFF;
+    --radius: 0.375rem;
+    
+    /* Jira-specific colors */
+    --jira-bg: #F4F5F7;
+    --jira-text-primary: #172B4D;
+    --jira-text-secondary: #5E6C84;
+    --jira-border: #DFE1E6;
+    --jira-blue-light: #DEEBFF;
+    --jira-blue-dark: #0747A6;
+    --jira-green: #36B37E;
+    --jira-red: #FF5630;
+    --jira-yellow: #FFAB00;
   }
 }
 
@@ -54,7 +44,8 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[#F4F5F7] text-[#172B4D] antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
 }
 
@@ -67,7 +58,7 @@
   -webkit-app-region: no-drag;
 }
 
-/* 滚动条样式 */
+/* 细滚动条样式 - Jira 风格 */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -78,10 +69,63 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: #C1C7D0;
   border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: #A5ADBA;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 文本截断 */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 拖拽时的样式 */
+.dragging {
+  cursor: grabbing !important;
+}
+
+/* 卡片悬停效果 */
+.task-card {
+  transition: all 0.15s ease;
+}
+
+.task-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(9, 30, 66, 0.15);
+}
+
+/* Toast 样式覆盖 */
+[data-sonner-toaster] {
+  --normal-bg: #FFFFFF;
+  --normal-text: #172B4D;
+  --normal-border: #DFE1E6;
+}
+
+/* UNCOVERED 徽章样式 */
+.badge-uncovered {
+  @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold;
+  background-color: #DEEBFF;
+  color: #0747A6;
+}
+
+/* Story 卡片左边框 */
+.card-story {
+  border-left: 4px solid #36B37E;
+}
+
+/* Bug 卡片左边框 */
+.card-bug {
+  border-left: 4px solid #FF5630;
 }

@@ -21,6 +21,19 @@ export function getDatabase(): Database.Database {
 }
 
 /**
+ * 检查列是否存在
+ */
+function columnExists(tableName: string, columnName: string): boolean {
+  if (!db) return false;
+  try {
+    const result = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+    return result.some(col => col.name === columnName);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 初始化数据库表结构
  * 根据 SPEC.md 定义创建 t_tasks, t_work_logs, t_settings 表
  */
@@ -35,6 +48,9 @@ function initializeTables(): void {
       key TEXT PRIMARY KEY,
       summary TEXT,
       status TEXT,
+      issuetype TEXT,
+      sprint TEXT,
+      sprint_state TEXT,
       mapped_column TEXT,
       assignee_name TEXT,
       assignee_avatar TEXT,
@@ -45,6 +61,20 @@ function initializeTables(): void {
       raw_json TEXT
     )
   `);
+
+  // 迁移：添加新列（如果旧表缺少这些列）
+  if (!columnExists('t_tasks', 'issuetype')) {
+    console.log('[Database] Migrating: Adding issuetype column...');
+    db.exec('ALTER TABLE t_tasks ADD COLUMN issuetype TEXT');
+  }
+  if (!columnExists('t_tasks', 'sprint')) {
+    console.log('[Database] Migrating: Adding sprint column...');
+    db.exec('ALTER TABLE t_tasks ADD COLUMN sprint TEXT');
+  }
+  if (!columnExists('t_tasks', 'sprint_state')) {
+    console.log('[Database] Migrating: Adding sprint_state column...');
+    db.exec('ALTER TABLE t_tasks ADD COLUMN sprint_state TEXT');
+  }
 
   // 工作日志表 - 记录用户操作和 AI 摘要
   db.exec(`
@@ -117,6 +147,9 @@ export const tasksDB = {
     key: string;
     summary: string;
     status: string;
+    issuetype?: string;
+    sprint?: string;
+    sprint_state?: string;
     mapped_column?: string | null;
     assignee_name?: string;
     assignee_avatar?: string;
@@ -127,12 +160,15 @@ export const tasksDB = {
   }): void {
     getDatabase().prepare(
       `INSERT OR REPLACE INTO t_tasks 
-       (key, summary, status, mapped_column, assignee_name, assignee_avatar, due_date, priority, updated_at, synced_at, raw_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (key, summary, status, issuetype, sprint, sprint_state, mapped_column, assignee_name, assignee_avatar, due_date, priority, updated_at, synced_at, raw_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       task.key,
       task.summary,
       task.status,
+      task.issuetype ?? null,
+      task.sprint ?? null,
+      task.sprint_state ?? null,
       task.mapped_column ?? null,
       task.assignee_name ?? null,
       task.assignee_avatar ?? null,

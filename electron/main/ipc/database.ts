@@ -77,6 +77,19 @@ export function registerDatabaseIPCs(): void {
     }
   });
 
+  // 清空所有任务（调试用）
+  ipcMain.handle('db:tasks:clearAll', () => {
+    try {
+      const db = getDatabase();
+      const result = db.prepare('DELETE FROM t_tasks').run();
+      console.log(`[IPC] Cleared ${result.changes} tasks from database`);
+      return { success: true, data: { deletedCount: result.changes } };
+    } catch (error) {
+      console.error('[IPC] tasks:clearAll error:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
   // 工作日志相关
   ipcMain.handle('db:workLogs:create', (_, log) => {
     try {

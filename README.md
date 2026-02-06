@@ -1,4 +1,4 @@
-# Jira Flow
+# Jira Flow v1.1.0
 
 一个本地优先的 Windows 桌面应用，用于同步 Jira 任务、可视化看板管理、记录工作日志，并生成 AI 驱动的周报。
 
@@ -9,12 +9,16 @@
 
 ## 功能特性
 
-- **Jira 同步**: 支持全量和增量同步，自动每 5 分钟后台同步
-- **看板视图**: 类似 Agile Hive 的高密度看板，支持拖拽排序
+- **Jira Agile API 同步**: 支持 4 步 Agile 同步（Board → Sprint → Issues），自动过滤当前用户任务
+- **智能泳道分组**: 基于 Planned End Date 自动分组：
+  - **OVERDUE (已超期)**: 截止日期已过且未完成
+  - **ON SCHEDULE (按期执行)**: 截止日期在今天或之后，或已完成
+  - **OTHERS (未设置排期)**: 无截止日期
+- **看板视图**: 12 列高密度看板（FUNNEL → CLOSED），支持拖拽工作流验证
 - **本地优先**: 所有数据存储在本地 SQLite 数据库，支持离线使用
-- **Obsidian 集成**: 任务完成时自动同步到 Obsidian Vault
-- **AI 周报**: 基于工作日志自动生成周报（支持 OpenAI 兼容接口如 Kimi、DeepSeek）
-- **深色主题**: 默认深色模式，符合开发者习惯
+- **头像系统**: 支持自定义头像上传（Base64 存储），自动首字母头像回退
+- **工作流验证**: Story 和 Bug 有不同的状态流转规则
+- **自定义字段支持**: 支持 Jira 自定义字段（如 customfield_10329 Planned End Date）
 
 ## 技术栈
 
@@ -33,6 +37,9 @@ CREATE TABLE t_tasks (
   key TEXT PRIMARY KEY,
   summary TEXT,
   status TEXT,
+  issuetype TEXT,
+  sprint TEXT,
+  sprint_state TEXT,
   mapped_column TEXT,
   assignee_name TEXT,
   assignee_avatar TEXT,
@@ -88,14 +95,14 @@ jira-flow/
 ├── electron/           # Electron 主进程
 │   ├── main/          # 主进程入口
 │   │   ├── db/        # SQLite 数据库
-│   │   └── ipc/       # IPC 处理器
+│   │   ├── ipc/       # IPC 处理器
+│   │   └── services/  # 同步服务、Jira 客户端
 │   └── preload/       # 预加载脚本
 ├── src/               # 渲染进程 React 代码
-│   ├── components/    # React 组件
+│   ├── components/    # React 组件（Board, TaskCard, Swimlane 等）
 │   ├── hooks/         # 自定义 Hooks
 │   ├── stores/        # Zustand 状态管理
-│   ├── types/         # TypeScript 类型
-│   └── utils/         # 工具函数
+│   └── types/         # TypeScript 类型
 └── dist/              # 构建输出
 ```
 
@@ -104,10 +111,25 @@ jira-flow/
 首次使用时，需要在设置页面配置 Jira 连接：
 
 1. **服务器地址**: Jira 实例 URL (如 `https://jira.company.com`)
-2. **用户名**: Jira 账户邮箱
+2. **用户名**: Jira 账户名（用于过滤"My Tasks"）
 3. **密码**: 建议使用 Personal Access Token (PAT)
+4. **Project Key**: 项目缩写（如 PROJ），用于 Agile API 自动检测 Board
 
 应用会自动将配置保存在本地 SQLite 中。
+
+## 主要更新日志
+
+### v1.1.0
+- 新增 Agile API 4 步同步（Board → Sprint → Issues）
+- 新增基于 Planned End Date 的智能泳道分组
+- 新增自定义字段支持（customfield_10329）
+- 新增头像上传功能
+- 修复中文编码问题（UTF-8 解码）
+- 修复 CSP 策略允许 base64 图片
+- 优化看板列宽防止溢出（min-w-[280px]）
+
+### v1.0.0
+- 初始版本，基础 Jira 同步和看板功能
 
 ## 开发说明
 
@@ -128,7 +150,10 @@ npx electron-rebuild -f -w better-sqlite3
 const result = await window.electronAPI.database.settings.get('key');
 
 // 同步 Jira
-await window.electronAPI.jira.fullSync();
+await window.electronAPI.jira.syncNow({ fullSync: true });
+
+// 清空任务数据（调试用）
+await window.electronAPI.database.tasks.clearAll();
 ```
 
 ## 许可证

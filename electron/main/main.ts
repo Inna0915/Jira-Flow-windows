@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDatabase, closeDatabase, settingsDB, tasksDB, workLogsDB } from './db/schema';
 import { registerDatabaseIPCs } from './ipc/database';
 import { registerJiraIPCs } from './ipc/jira';
+import { syncService } from './services/SyncService';
 
 // ESM 中 __dirname 替代方案
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,10 +57,36 @@ function createMainWindow(): void {
 }
 
 /**
+ * 配置 Content Security Policy
+ * 允许 data: 协议用于头像图片
+ */
+function configureCSP(): void {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+          "style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data: https:; " +
+          "font-src 'self'; " +
+          "connect-src 'self';"
+        ]
+      }
+    });
+  });
+  console.log('[Main] CSP configured with data: protocol support');
+}
+
+/**
  * 应用准备就绪
  */
 app.whenReady().then(() => {
   console.log('[Main] App is ready');
+
+  // 配置 CSP（在创建窗口之前）
+  configureCSP();
 
   // 初始化数据库（在创建窗口之前）
   try {
@@ -74,6 +101,15 @@ app.whenReady().then(() => {
   // 注册 IPC 处理器
   registerDatabaseIPCs();
   registerJiraIPCs();
+
+  // 初始化同步服务（从数据库加载配置）
+  const jiraConfigured = syncService.initializeFromDB();
+  if (jiraConfigured) {
+    console.log('[Main] Jira sync service initialized');
+    syncService.loadSyncConfig();
+  } else {
+    console.log('[Main] Jira not configured yet');
+  }
 
   // 创建主窗口
   createMainWindow();
