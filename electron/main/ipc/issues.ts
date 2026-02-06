@@ -76,10 +76,10 @@ export function registerIssueIPCs(): void {
   console.log('[IPC] Registering issue IPC handlers...');
 
   /**
-   * 执行 Jira 状态转换
+   * 执行 Jira 状态转换（通过目标列）
    * 在拖拽卡片时同步更新 Jira 状态
    */
-  ipcMain.handle('jira:transition-issue', async (_, { key, targetColumn }: { key: string; targetColumn: string }) => {
+  ipcMain.handle('jira:transition-issue-by-column', async (_, { key, targetColumn }: { key: string; targetColumn: string }) => {
     console.log(`[IPC] Transition issue ${key} to column ${targetColumn}`);
     
     const client = getJiraClient();

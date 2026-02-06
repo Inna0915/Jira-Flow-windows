@@ -86,7 +86,7 @@ const jiraAPI = {
    * @param targetColumn 目标列 ID (todo/inprogress/review/done)
    */
   transitionIssueByColumn: (key, targetColumn) =>
-    ipcRenderer.invoke('jira:transition-issue', { key, targetColumn }),
+    ipcRenderer.invoke('jira:transition-issue-by-column', { key, targetColumn }),
 };
 
 // 看板 API（基于 SyncService 的高级操作）
