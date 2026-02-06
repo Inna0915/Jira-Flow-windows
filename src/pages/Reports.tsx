@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Calendar, Plus, Trash2, FileText, RefreshCw, Copy, Check, 
-  Sparkles, X, Bot, Loader2
+  Plus, Trash2, FileText, RefreshCw, Copy, Check, 
+  Sparkles, Calendar as CalendarIcon, Bot, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -10,10 +10,10 @@ import {
   endOfWeek,
   startOfMonth,
   endOfMonth,
-  subWeeks,
-  isSameDay,
   parseISO,
 } from 'date-fns';
+import { Lunar } from 'lunar-javascript';
+import { CalendarSidebar } from '../components/CalendarSidebar';
 
 /**
  * 工作日志条目类型
@@ -44,17 +44,10 @@ interface PromptTemplate {
   content: string;
 }
 
-type DateRangePreset = 'today' | 'thisWeek' | 'lastWeek' | 'thisMonth';
+type ViewMode = 'day' | 'week' | 'month';
 
 /**
- * 工作日志报告页面 - TimeSheet Dashboard
- * 
- * 功能：
- * 1. 日期范围选择（Today / This Week / Last Week / This Month）
- * 2. 按日期分组显示日志
- * 3. 复制文本摘要
- * 4. 添加/删除手动记录
- * 5. AI 报告生成
+ * 工作日志报告页面 - 左右分栏布局 with 农历日历
  */
 export function Reports() {
   const [logs, setLogs] = useState<WorkLog[]>([]);
@@ -62,11 +55,10 @@ export function Reports() {
   const [manualContent, setManualContent] = useState('');
   const [copied, setCopied] = useState(false);
   
-  // 日期范围状态
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [activePreset, setActivePreset] = useState<DateRangePreset>('thisWeek');
-
+  // 日历和视图状态
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  
   // AI 报告生成状态
   const [aiProfiles, setAiProfiles] = useState<AIProfile[]>([]);
   const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>([]);
@@ -79,11 +71,21 @@ export function Reports() {
   const [generatedReport, setGeneratedReport] = useState<string>('');
   const [showReportPreview, setShowReportPreview] = useState(false);
 
-  // 初始化默认范围（本周）
+  // 初始化
   useEffect(() => {
-    applyPreset('thisWeek');
+    loadLogs();
     loadAIProfiles();
     loadPromptTemplates();
+  }, [currentDate, viewMode]);
+
+  // 获取农历日期字符串
+  const getLunarDateString = useCallback((date: Date): string => {
+    try {
+      const lunar = Lunar.fromDate(date);
+      return `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
+    } catch {
+      return '';
+    }
   }, []);
 
   // 加载 AI Profiles
@@ -93,7 +95,6 @@ export function Reports() {
       if (result.success) {
         const profiles = result.data || [];
         setAiProfiles(profiles);
-        // 默认选择激活的 profile
         const active = profiles.find(p => p.isActive);
         if (active) {
           setSelectedProfileId(active.id);
@@ -123,62 +124,44 @@ export function Reports() {
   };
 
   /**
-   * 应用日期范围预设
+   * 根据当前视图模式获取日期范围
    */
-  const applyPreset = (preset: DateRangePreset) => {
-    const today = new Date();
-    let start: Date;
-    let end: Date;
-
-    switch (preset) {
-      case 'today':
-        start = today;
-        end = today;
-        break;
-      case 'thisWeek':
-        start = startOfWeek(today, { weekStartsOn: 1 }); // 周一开始
-        end = endOfWeek(today, { weekStartsOn: 1 });
-        break;
-      case 'lastWeek':
-        const lastWeek = subWeeks(today, 1);
-        start = startOfWeek(lastWeek, { weekStartsOn: 1 });
-        end = endOfWeek(lastWeek, { weekStartsOn: 1 });
-        break;
-      case 'thisMonth':
-        start = startOfMonth(today);
-        end = endOfMonth(today);
-        break;
+  const getDateRange = useCallback(() => {
+    switch (viewMode) {
+      case 'day':
+        return {
+          start: currentDate,
+          end: currentDate,
+          label: format(currentDate, 'yyyy年MM月dd日')
+        };
+      case 'week':
+        return {
+          start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+          end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+          label: `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MM/dd')} - ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'MM/dd')}`
+        };
+      case 'month':
+        return {
+          start: startOfMonth(currentDate),
+          end: endOfMonth(currentDate),
+          label: format(currentDate, 'yyyy年MM月')
+        };
       default:
-        return;
+        return { start: currentDate, end: currentDate, label: '' };
     }
-
-    setActivePreset(preset);
-    setStartDate(format(start, 'yyyy-MM-dd'));
-    setEndDate(format(end, 'yyyy-MM-dd'));
-  };
-
-  /**
-   * 获取预设按钮文本
-   */
-  const getPresetLabel = (preset: DateRangePreset): string => {
-    const labels: Record<DateRangePreset, string> = {
-      today: 'Today',
-      thisWeek: 'This Week',
-      lastWeek: 'Last Week',
-      thisMonth: 'This Month',
-    };
-    return labels[preset];
-  };
+  }, [currentDate, viewMode]);
 
   /**
    * 加载日志数据
    */
   const loadLogs = useCallback(async () => {
-    if (!startDate || !endDate) return;
+    const { start, end } = getDateRange();
+    const startStr = format(start, 'yyyy-MM-dd');
+    const endStr = format(end, 'yyyy-MM-dd');
     
     setIsLoading(true);
     try {
-      const result = await window.electronAPI.database.workLogs.getLogs(startDate, endDate);
+      const result = await window.electronAPI.database.workLogs.getLogs(startStr, endStr);
       if (result.success) {
         setLogs(result.data || []);
       } else {
@@ -190,12 +173,7 @@ export function Reports() {
     } finally {
       setIsLoading(false);
     }
-  }, [startDate, endDate]);
-
-  // 日期变化时刷新
-  useEffect(() => {
-    loadLogs();
-  }, [loadLogs]);
+  }, [getDateRange]);
 
   /**
    * 添加手动记录
@@ -207,14 +185,14 @@ export function Reports() {
     }
 
     try {
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const today = format(currentDate, 'yyyy-MM-dd');
       const result = await window.electronAPI.database.workLogs.logManual({
         summary: manualContent.trim(),
         log_date: today,
       });
 
       if (result.success) {
-        toast.success('Manual task added');
+        toast.success('任务已添加');
         setManualContent('');
         await loadLogs();
       } else {
@@ -237,7 +215,7 @@ export function Reports() {
       );
       
       if (result.success) {
-        toast.success('Log deleted');
+        toast.success('已删除');
         await loadLogs();
       } else {
         toast.error('删除失败');
@@ -249,7 +227,7 @@ export function Reports() {
   };
 
   /**
-   * 生成并复制文本摘要
+   * 复制文本摘要
    */
   const handleCopySummary = async () => {
     if (logs.length === 0) {
@@ -257,29 +235,15 @@ export function Reports() {
       return;
     }
 
-    // 按日期分组
-    const grouped = logs.reduce((acc, log) => {
-      if (!acc[log.log_date]) {
-        acc[log.log_date] = [];
-      }
-      acc[log.log_date].push(log);
-      return acc;
-    }, {} as Record<string, WorkLog[]>);
-
-    // 生成文本
-    const sortedDates = Object.keys(grouped).sort();
+    const { label } = getDateRange();
     const lines: string[] = [
-      `Work Report (${format(parseISO(startDate), 'MMM dd')} - ${format(parseISO(endDate), 'MMM dd, yyyy')}):`,
+      `工作报告 (${label}):`,
       '',
     ];
 
-    sortedDates.forEach((date) => {
-      lines.push(`${date}:`);
-      grouped[date].forEach((log) => {
-        const prefix = log.source === 'JIRA' ? `[${log.task_key}]` : '[MANUAL]';
-        lines.push(`- [${log.source}] ${prefix} ${log.summary}`);
-      });
-      lines.push('');
+    logs.forEach((log) => {
+      const prefix = log.source === 'JIRA' ? `[${log.task_key}]` : '[手动]';
+      lines.push(`- [${log.source}] ${prefix} ${log.summary}`);
     });
 
     const text = lines.join('\n');
@@ -287,7 +251,7 @@ export function Reports() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      toast.success('Report copied to clipboard');
+      toast.success('已复制到剪贴板');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       toast.error('复制失败');
@@ -332,7 +296,6 @@ export function Reports() {
     const loadingToast = toast.loading('正在生成报告...');
 
     try {
-      // 准备日志数据
       const logsForReport = logs.map(log => ({
         task_key: log.task_key,
         summary: log.summary,
@@ -377,17 +340,7 @@ export function Reports() {
     }
   };
 
-  /**
-   * 格式化日期显示（如：Friday, Feb 06）
-   */
-  const formatDateHeader = (dateStr: string): string => {
-    const date = parseISO(dateStr);
-    return format(date, 'EEEE, MMM dd');
-  };
-
-  /**
-   * 按日期分组日志
-   */
+  // 按日期分组日志
   const groupedLogs = useMemo(() => {
     return logs.reduce((acc, log) => {
       if (!acc[log.log_date]) {
@@ -398,250 +351,231 @@ export function Reports() {
     }, {} as Record<string, WorkLog[]>);
   }, [logs]);
 
-  // 按日期降序排列
   const sortedDates = Object.keys(groupedLogs).sort().reverse();
-
-  // 检查是否是今天
-  const isToday = (dateStr: string): boolean => {
-    return isSameDay(parseISO(dateStr), new Date());
-  };
-
-  // 获取选中的模板描述
+  const { label: dateRangeLabel } = getDateRange();
   const selectedTemplate = promptTemplates.find(t => t.id === selectedTemplateId);
 
   return (
-    <div className="flex h-full flex-col bg-[#F4F5F7]">
-      {/* 顶部标题栏 */}
-      <div className="flex items-center justify-between border-b border-[#DFE1E6] bg-white px-6 py-4">
-        <div className="flex items-center gap-3">
-          <FileText className="h-5 w-5 text-[#0052CC]" />
-          <h1 className="text-lg font-semibold text-[#172B4D]">Work Report</h1>
+    <div className="flex h-full bg-[#F4F5F7] overflow-hidden">
+      {/* LEFT SIDEBAR: Calendar & Quick Filters */}
+      <div className="w-[340px] min-w-[340px] bg-white border-r border-gray-200 flex flex-col">
+        <div className="p-4 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5 text-[#0052CC]" />
+            工作日历
+          </h2>
         </div>
         
-        <div className="flex items-center gap-2">
-          {/* AI 生成报告按钮 */}
+        <div className="flex-1 overflow-y-auto">
+          <CalendarSidebar 
+            selectedDate={currentDate} 
+            onSelect={(d) => { 
+              setCurrentDate(d); 
+              setViewMode('day'); 
+            }} 
+          />
+        </div>
+        
+        {/* Quick Range Buttons */}
+        <div className="p-4 border-t border-gray-100 space-y-2">
           <button
-            onClick={handleOpenGenerationModal}
-            disabled={logs.length === 0}
-            className="flex items-center gap-1.5 rounded bg-gradient-to-r from-[#6554C0] to-[#8777D9] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            onClick={() => setViewMode('week')}
+            className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'week' 
+                ? 'bg-[#0052CC] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            Generate with AI
+            查看本周
           </button>
-
           <button
-            onClick={handleCopySummary}
-            disabled={logs.length === 0 || copied}
-            className="flex items-center gap-1.5 rounded bg-[#0052CC] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0747A6] disabled:opacity-50"
+            onClick={() => setViewMode('month')}
+            className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'month' 
+                ? 'bg-[#0052CC] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
           >
-            {copied ? (
-              <Check className="h-3.5 w-3.5" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-            {copied ? 'Copied' : 'Copy Text Summary'}
+            查看本月
           </button>
-          
           <button
-            onClick={loadLogs}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 rounded border border-[#DFE1E6] bg-white px-3 py-1.5 text-xs font-medium text-[#172B4D] hover:bg-[#F4F5F7] disabled:opacity-50"
+            onClick={() => setViewMode('day')}
+            className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              viewMode === 'day' 
+                ? 'bg-[#0052CC] text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            刷新
+            查看当天
           </button>
         </div>
       </div>
 
-      {/* 内容区域 */}
-      <div className="flex-1 overflow-auto p-6">
-        {/* 日期范围控制面板 */}
-        <div className="mb-6 rounded-lg bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-4">
-            {/* 预设按钮 */}
-            <div className="flex items-center gap-2">
-              {(['today', 'thisWeek', 'lastWeek', 'thisMonth'] as DateRangePreset[]).map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => applyPreset(preset)}
-                  className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                    activePreset === preset
-                      ? 'bg-[#0052CC] text-white'
-                      : 'bg-[#F4F5F7] text-[#172B4D] hover:bg-[#EBECF0]'
-                  }`}
-                >
-                  {getPresetLabel(preset)}
-                </button>
-              ))}
-            </div>
-            
-            {/* 日期显示和自定义选择 */}
-            <div className="flex items-center justify-between border-t border-[#DFE1E6] pt-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-[#5E6C84]" />
-                <span className="font-medium text-[#172B4D]">
-                  {format(parseISO(startDate || new Date().toISOString()), 'MMM dd')} - {format(parseISO(endDate || new Date().toISOString()), 'MMM dd, yyyy')}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setActivePreset('' as DateRangePreset);
-                  }}
-                  className="rounded-md border border-[#DFE1E6] bg-white px-2 py-1 text-xs text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
-                />
-                <span className="text-[#5E6C84]">to</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setActivePreset('' as DateRangePreset);
-                  }}
-                  className="rounded-md border border-[#DFE1E6] bg-white px-2 py-1 text-xs text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
-                />
-              </div>
-            </div>
+      {/* RIGHT MAIN CONTENT: Log List & Input */}
+      <div className="flex-1 flex flex-col h-full min-w-0">
+        {/* Header Toolbar */}
+        <div className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold text-gray-900">
+              {dateRangeLabel}
+            </h1>
+            <span className="text-sm text-gray-500">
+              ({getLunarDateString(currentDate)})
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-gray-100 text-xs text-gray-600">
+              {logs.length} 条记录
+            </span>
           </div>
-        </div>
-
-        {/* 添加手动记录 */}
-        <div className="mb-6 rounded-lg bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-medium text-[#172B4D]">Add non-Jira task</h2>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={manualContent}
-              onChange={(e) => setManualContent(e.target.value)}
-              placeholder="输入非 Jira 任务内容..."
-              className="flex-1 rounded-md border border-[#DFE1E6] bg-white px-3 py-2 text-sm text-[#172B4D] placeholder:text-[#C1C7D0] focus:border-[#4C9AFF] focus:outline-none focus:ring-1 focus:ring-[#4C9AFF]"
-              onKeyDown={(e) => e.key === 'Enter' && handleAddManual()}
-            />
+          
+          <div className="flex items-center gap-2">
+            {/* AI 生成报告按钮 */}
             <button
-              onClick={handleAddManual}
-              disabled={!manualContent.trim()}
-              className="flex items-center gap-1.5 rounded bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6] disabled:opacity-50"
+              onClick={handleOpenGenerationModal}
+              disabled={logs.length === 0}
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#6554C0] to-[#8777D9] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              <Plus className="h-4 w-4" />
-              添加
+              <Sparkles className="h-4 w-4" />
+              AI 生成报告
+            </button>
+
+            <button
+              onClick={handleCopySummary}
+              disabled={logs.length === 0 || copied}
+              className="flex items-center gap-1.5 rounded-lg bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6] disabled:opacity-50 transition-colors"
+            >
+              {copied ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              {copied ? '已复制' : '复制摘要'}
+            </button>
+            
+            <button
+              onClick={loadLogs}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              刷新
             </button>
           </div>
         </div>
 
-        {/* 日志列表 - 按日期分组 */}
-        <div className="space-y-4">
-          {sortedDates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg bg-white py-16 text-[#5E6C84]">
-              <FileText className="mb-3 h-12 w-12 text-[#C1C7D0]" />
-              <p className="text-sm">暂无工作日志</p>
-              <p className="mt-1 text-xs text-[#8993A4]">
-                拖拽 Jira 任务到完成状态，或手动添加记录
-              </p>
-            </div>
-          ) : (
-            sortedDates.map((date) => (
-              <div key={date} className="rounded-lg bg-white shadow-sm overflow-hidden">
-                {/* 日期标题 */}
-                <div className="border-b border-[#DFE1E6] bg-[#F4F5F7] px-4 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-[#172B4D]">
-                      {formatDateHeader(date)}
-                    </span>
-                    {isToday(date) && (
-                      <span className="rounded bg-[#0052CC] px-2 py-0.5 text-[10px] font-bold text-white">
-                        TODAY
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-xs text-[#5E6C84]">
-                    {groupedLogs[date].length} entries
-                  </span>
-                </div>
-
-                {/* 当天的日志条目 */}
-                <div className="divide-y divide-[#DFE1E6]">
-                  {groupedLogs[date].map((log) => (
-                    <div
-                      key={log.id}
-                      className="flex items-center justify-between px-4 py-3 hover:bg-[#FAFBFC] transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {/* 来源标签 - JIRA蓝色，MANUAL灰色 */}
-                        <span
-                          className={`shrink-0 rounded px-2 py-1 text-[10px] font-bold ${
-                            log.source === 'JIRA'
-                              ? 'bg-[#0052CC] text-white'
-                              : 'bg-[#5E6C84] text-white'
-                          }`}
-                        >
-                          {log.source}
-                        </span>
-
-                        {/* 任务内容 */}
-                        <span className="truncate text-sm text-[#172B4D]">
-                          {log.source === 'JIRA' ? `[${log.task_key}] ${log.summary}` : log.summary}
-                        </span>
-                      </div>
-
-                      {/* 删除按钮 */}
-                      <button
-                        onClick={() => handleDelete(log.id)}
-                        className="ml-2 shrink-0 rounded p-1.5 text-[#5E6C84] hover:bg-[#FFEBE6] hover:text-[#DE350B] transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* 统计信息 */}
-        {logs.length > 0 && (
-          <div className="mt-6 flex items-center justify-between rounded-lg bg-white p-4 shadow-sm text-sm">
-            <span className="text-[#5E6C84]">
-              Total: <strong className="text-[#172B4D]">{logs.length}</strong> entries
-            </span>
-            <div className="flex items-center gap-4">
-              <span className="text-[#5E6C84]">
-                <span className="inline-block w-2 h-2 rounded-full bg-[#0052CC] mr-1"></span>
-                Jira: <strong className="text-[#172B4D]">
-                  {logs.filter(l => l.source === 'JIRA').length}
-                </strong>
-              </span>
-              <span className="text-[#5E6C84]">
-                <span className="inline-block w-2 h-2 rounded-full bg-[#5E6C84] mr-1"></span>
-                Manual: <strong className="text-[#172B4D]">
-                  {logs.filter(l => l.source === 'MANUAL').length}
-                </strong>
-              </span>
+        {/* Scrollable List Area */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Add Task Input */}
+          <div className="mb-6 rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+            <h3 className="mb-3 text-sm font-medium text-gray-700">添加非 Jira 任务</h3>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={manualContent}
+                onChange={(e) => setManualContent(e.target.value)}
+                placeholder="输入任务内容..."
+                className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#0052CC] focus:outline-none focus:ring-1 focus:ring-[#0052CC]"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddManual()}
+              />
+              <button
+                onClick={handleAddManual}
+                disabled={!manualContent.trim()}
+                className="flex items-center gap-1.5 rounded-lg bg-[#0052CC] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#0747A6] disabled:opacity-50 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                添加
+              </button>
             </div>
           </div>
-        )}
+
+          {/* Log List */}
+          <div className="space-y-4">
+            {sortedDates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl bg-white py-16 text-gray-500 border border-dashed border-gray-200">
+                <FileText className="mb-3 h-12 w-12 text-gray-300" />
+                <p className="text-sm">暂无工作日志</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  拖拽 Jira 任务到完成状态，或手动添加记录
+                </p>
+              </div>
+            ) : (
+              sortedDates.map((date) => (
+                <div key={date} className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
+                  {/* 日期标题 */}
+                  <div className="border-b border-gray-100 bg-gray-50/50 px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-900">
+                        {format(parseISO(date), 'yyyy年MM月dd日')}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {getLunarDateString(parseISO(date))}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-400">
+                      {groupedLogs[date].length} 条记录
+                    </span>
+                  </div>
+
+                  {/* 当天的日志条目 */}
+                  <div className="divide-y divide-gray-50">
+                    {groupedLogs[date].map((log) => (
+                      <div
+                        key={log.id}
+                        className="flex items-center justify-between px-4 py-3 hover:bg-gray-50/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {/* 来源标签 */}
+                          <span
+                            className={`shrink-0 rounded px-2 py-1 text-[10px] font-bold ${
+                              log.source === 'JIRA'
+                                ? 'bg-[#0052CC] text-white'
+                                : 'bg-gray-500 text-white'
+                            }`}
+                          >
+                            {log.source}
+                          </span>
+
+                          {/* 任务内容 */}
+                          <span className="truncate text-sm text-gray-900">
+                            {log.source === 'JIRA' ? `[${log.task_key}] ${log.summary}` : log.summary}
+                          </span>
+                        </div>
+
+                        {/* 删除按钮 */}
+                        <button
+                          onClick={() => handleDelete(log.id)}
+                          className="ml-2 shrink-0 rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                          title="删除"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* AI 生成选项模态框 */}
       {showGenerationModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
             {/* 模态框头部 */}
-            <div className="flex items-center justify-between border-b border-[#DFE1E6] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-[#6554C0]" />
-                <h2 className="text-lg font-semibold text-[#172B4D]">Generate Report with AI</h2>
+                <h2 className="text-lg font-semibold text-gray-900">使用 AI 生成报告</h2>
               </div>
               <button
                 onClick={() => setShowGenerationModal(false)}
-                className="rounded p-1 text-[#5E6C84] hover:bg-[#F4F5F7]"
+                className="rounded p-1 text-gray-400 hover:bg-gray-100"
               >
-                <X className="h-5 w-5" />
+                <span className="sr-only">关闭</span>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
@@ -649,17 +583,17 @@ export function Reports() {
             <div className="px-6 py-4 space-y-4">
               {/* AI 模型选择 */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
-                  AI Model
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  AI 模型
                 </label>
                 <select
                   value={selectedProfileId}
                   onChange={(e) => setSelectedProfileId(e.target.value)}
-                  className="w-full rounded-md border border-[#DFE1E6] bg-white px-3 py-2 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#0052CC] focus:outline-none focus:ring-1 focus:ring-[#0052CC]"
                 >
                   {aiProfiles.map((profile) => (
                     <option key={profile.id} value={profile.id}>
-                      {profile.name} {profile.isActive ? '(Active)' : ''} - {profile.model}
+                      {profile.name} {profile.isActive ? '(默认)' : ''} - {profile.model}
                     </option>
                   ))}
                 </select>
@@ -667,13 +601,13 @@ export function Reports() {
 
               {/* Prompt Template 选择 */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
-                  Prompt Template
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  报告模板
                 </label>
                 <select
                   value={selectedTemplateId}
                   onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  className="w-full rounded-md border border-[#DFE1E6] bg-white px-3 py-2 text-sm text-[#172B4D] focus:border-[#4C9AFF] focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-[#0052CC] focus:outline-none focus:ring-1 focus:ring-[#0052CC]"
                 >
                   {promptTemplates.map((template) => (
                     <option key={template.id} value={template.id}>
@@ -685,32 +619,32 @@ export function Reports() {
 
               {/* 模板描述预览 */}
               {selectedTemplate && (
-                <div className="rounded-md bg-[#F4F5F7] p-3">
-                  <p className="text-xs text-[#5E6C84]">{selectedTemplate.description}</p>
+                <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+                  {selectedTemplate.description}
                 </div>
               )}
 
               {/* 日志统计 */}
-              <div className="rounded-md border border-[#DFE1E6] bg-[#FAFBFC] p-3">
-                <div className="flex items-center gap-2 text-xs text-[#5E6C84]">
+              <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Bot className="h-4 w-4" />
-                  <span>将基于 <strong className="text-[#172B4D]">{logs.length}</strong> 条工作日志生成报告</span>
+                  <span>将基于 <strong className="text-gray-900">{logs.length}</strong> 条工作日志生成报告</span>
                 </div>
               </div>
             </div>
 
             {/* 模态框底部 */}
-            <div className="flex items-center justify-end gap-3 border-t border-[#DFE1E6] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 onClick={() => setShowGenerationModal(false)}
-                className="rounded border border-[#DFE1E6] bg-white px-4 py-2 text-sm font-medium text-[#172B4D] hover:bg-[#F4F5F7]"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 取消
               </button>
               <button
                 onClick={handleGenerateReport}
                 disabled={isGenerating || !selectedProfileId || !selectedTemplateId}
-                className="flex items-center gap-1.5 rounded bg-gradient-to-r from-[#6554C0] to-[#8777D9] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#6554C0] to-[#8777D9] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
                 {isGenerating ? (
                   <>
@@ -732,41 +666,42 @@ export function Reports() {
       {/* 报告预览模态框 */}
       {showReportPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-3xl max-h-[80vh] rounded-lg bg-white shadow-xl flex flex-col">
+          <div className="w-full max-w-3xl max-h-[80vh] rounded-xl bg-white shadow-xl flex flex-col">
             {/* 模态框头部 */}
-            <div className="flex items-center justify-between border-b border-[#DFE1E6] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-[#0052CC]" />
-                <h2 className="text-lg font-semibold text-[#172B4D]">Generated Report</h2>
+                <h2 className="text-lg font-semibold text-gray-900">生成的报告</h2>
               </div>
               <button
                 onClick={() => setShowReportPreview(false)}
-                className="rounded p-1 text-[#5E6C84] hover:bg-[#F4F5F7]"
+                className="rounded p-1 text-gray-400 hover:bg-gray-100"
               >
-                <X className="h-5 w-5" />
+                <span className="sr-only">关闭</span>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             {/* 报告内容 */}
             <div className="flex-1 overflow-auto p-6">
-              <div className="prose prose-sm max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-sm text-[#172B4D] bg-[#FAFBFC] p-4 rounded-lg border border-[#DFE1E6]">
-                  {generatedReport}
-                </pre>
-              </div>
+              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-900 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                {generatedReport}
+              </pre>
             </div>
 
             {/* 模态框底部 */}
-            <div className="flex items-center justify-end gap-3 border-t border-[#DFE1E6] px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
               <button
                 onClick={() => setShowReportPreview(false)}
-                className="rounded border border-[#DFE1E6] bg-white px-4 py-2 text-sm font-medium text-[#172B4D] hover:bg-[#F4F5F7]"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 关闭
               </button>
               <button
                 onClick={handleCopyGeneratedReport}
-                className="flex items-center gap-1.5 rounded bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6]"
+                className="flex items-center gap-1.5 rounded-lg bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6] transition-colors"
               >
                 <Copy className="h-4 w-4" />
                 复制报告

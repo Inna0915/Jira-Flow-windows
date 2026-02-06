@@ -285,6 +285,14 @@ declare interface AIAPI {
   getProviderTemplates: () => Promise<{ success: true; data: Record<AIProvider, ProviderTemplate> } | { success: false; error: string }>;
 }
 
+// System API 类型
+declare interface SystemAPI {
+  /**
+   * 在系统默认浏览器中打开 Jira Issue
+   */
+  openJiraIssue: (issueKey: string) => Promise<{ success: boolean; error?: string }>;
+}
+
 // Electron API 类型声明
 declare global {
   interface Window {
@@ -293,6 +301,7 @@ declare global {
       jira: JiraAPI;
       board: BoardAPI;
       obsidian: ObsidianAPI;
+      system: SystemAPI;
       ai: AIAPI;
     };
   }

@@ -75,6 +75,9 @@ export function SettingsPanel() {
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
+  // 自动同步间隔设置（分钟）
+  const [autoSyncInterval, setAutoSyncInterval] = useState<number>(5);
+  
   // 头像设置
   const [avatarName, setAvatarName] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -135,6 +138,15 @@ export function SettingsPanel() {
           password: data.password || '',
           projectKey: data.projectKey || '',
         });
+      }
+      
+      // 加载自动同步间隔设置
+      const autoSyncResult = await window.electronAPI.database.settings.get('jira_autoSyncInterval');
+      if (autoSyncResult.success && autoSyncResult.data) {
+        const minutes = parseInt(autoSyncResult.data, 10);
+        if (!isNaN(minutes) && minutes >= 1) {
+          setAutoSyncInterval(minutes);
+        }
       }
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -555,6 +567,29 @@ export function SettingsPanel() {
       toast.error(`连接错误: ${error}`);
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  // 处理自动同步间隔变更
+  const handleAutoSyncIntervalChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (isNaN(value) || value < 1) {
+      toast.error('自动同步间隔至少为 1 分钟');
+      return;
+    }
+    if (value > 60) {
+      toast.error('自动同步间隔最大为 60 分钟');
+      return;
+    }
+    
+    setAutoSyncInterval(value);
+    
+    try {
+      await window.electronAPI.database.settings.set('jira_autoSyncInterval', String(value));
+      toast.success(`自动同步间隔已设置为 ${value} 分钟`);
+    } catch (error) {
+      console.error('Failed to save auto-sync interval:', error);
+      toast.error('保存自动同步设置失败');
     }
   };
 
@@ -1058,7 +1093,7 @@ export function SettingsPanel() {
               <p className="mb-3 text-xs text-[#5E6C84]">
                 设置项目 Key 以启用 Agile 看板自动检测（如 PROJ-123 中的 PROJ）。留空则使用 JQL 同步。
               </p>
-              <div>
+              <div className="mb-4">
                 <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
                   项目 Key
                 </label>
@@ -1071,6 +1106,25 @@ export function SettingsPanel() {
                 />
                 <p className="mt-1 text-xs text-[#5E6C84]">
                   从任务 Key 前缀自动提取，例如 &quot;PROJ-123&quot; 的项目 Key 是 &quot;PROJ&quot;
+                </p>
+              </div>
+
+              {/* 自动同步间隔设置 */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
+                  自动同步间隔（分钟）
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={autoSyncInterval}
+                  onChange={handleAutoSyncIntervalChange}
+                  placeholder="5"
+                  className={inputClass}
+                />
+                <p className="mt-1 text-xs text-[#5E6C84]">
+                  看板将每隔指定分钟数自动进行增量同步。最小 1 分钟，默认 5 分钟。
                 </p>
               </div>
             </div>

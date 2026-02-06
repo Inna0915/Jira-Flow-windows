@@ -23,6 +23,7 @@
         "electron-store": "^10.0.1",
         "knex": "^3.1.0",
         "lucide-react": "^0.474.0",
+        "lunar-javascript": "^1.7.7",
         "minidenticons": "^4.2.1",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
@@ -66,11 +67,15 @@
             "target": [
                 {
                     "target": "nsis",
-                    "arch": ["x64"]
+                    "arch": [
+                        "x64"
+                    ]
                 },
                 {
                     "target": "portable",
-                    "arch": ["x64"]
+                    "arch": [
+                        "x64"
+                    ]
                 }
             ],
             "icon": "build/icon.ico"

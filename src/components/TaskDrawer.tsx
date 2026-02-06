@@ -19,9 +19,25 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
   };
 
   const openInJira = () => {
-    // TODO: 使用配置的 Jira host
-    const jiraHost = 'https://jira.example.com';
-    window.open(`${jiraHost}/browse/${task.key}`, '_blank');
+    console.log('[TaskDrawer] Opening Jira issue:', task.key);
+    if (window.electronAPI?.system?.openJiraIssue) {
+      window.electronAPI.system.openJiraIssue(task.key);
+    } else {
+      console.error('[TaskDrawer] electronAPI.system not available');
+      // Fallback
+      window.open(`https://jira.example.com/browse/${task.key}`, '_blank');
+    }
+  };
+  
+  const openLinkedIssue = (issueKey: string) => {
+    console.log('[TaskDrawer] Opening linked Jira issue:', issueKey);
+    if (window.electronAPI?.system?.openJiraIssue) {
+      window.electronAPI.system.openJiraIssue(issueKey);
+    } else {
+      console.error('[TaskDrawer] electronAPI.system not available');
+      // Fallback
+      window.open(`https://jira.example.com/browse/${issueKey}`, '_blank');
+    }
   };
 
   return (
@@ -41,15 +57,14 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
       >
         {/* 头部 */}
         <div className="flex items-center justify-between border-b border-[#DFE1E6] bg-white px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span 
-              className="text-sm font-semibold text-[#0052CC] hover:underline cursor-pointer" 
-              onClick={openInJira}
-            >
-              {task.key}
-            </span>
-            <ExternalLink className="h-3 w-3 text-[#5E6C84]" />
-          </div>
+          <span 
+            className="group inline-flex items-center gap-1.5 text-sm font-semibold text-[#0052CC] hover:text-[#0747A6] cursor-pointer" 
+            onClick={openInJira}
+            title="在浏览器中打开"
+          >
+            <span className="hover:underline">{task.key}</span>
+            <ExternalLink className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+          </span>
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyInfo}
@@ -133,11 +148,17 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
                     key={link.key}
                     className="flex items-center justify-between rounded-lg border border-[#DFE1E6] bg-white p-2 hover:bg-[#F4F5F7]"
                   >
-                    <div>
-                      <span className="text-xs font-medium text-[#0052CC]">{link.key}</span>
-                      <p className="text-xs text-[#5E6C84]">{link.summary}</p>
+                    <div className="flex-1 min-w-0">
+                      <button
+                        className="text-xs font-medium text-[#0052CC] hover:text-[#0747A6] hover:underline"
+                        onClick={() => openLinkedIssue(link.key)}
+                        title={`在浏览器中打开 ${link.key}`}
+                      >
+                        {link.key}
+                      </button>
+                      <p className="text-xs text-[#5E6C84] truncate">{link.summary}</p>
                     </div>
-                    <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-[10px] text-[#5E6C84]">
+                    <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-[10px] text-[#5E6C84] ml-2 shrink-0">
                       {link.type}
                     </span>
                   </div>

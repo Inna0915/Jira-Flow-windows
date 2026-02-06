@@ -28,21 +28,21 @@ export interface BoardTask {
 }
 
 /**
- * 看板列定义 - 严格按照要求的顺序
+ * 看板列定义 - 严格按照要求的顺序 (中英双语)
  */
 export const BOARD_COLUMNS = [
-  { id: 'FUNNEL', name: 'FUNNEL', order: 0 },
-  { id: 'DEFINING', name: 'DEFINING', order: 1 },
-  { id: 'READY', name: 'READY', order: 2 },
-  { id: 'TO DO', name: 'TO DO', order: 3 },
-  { id: 'EXECUTION', name: 'EXECUTION', order: 4 },
-  { id: 'EXECUTED', name: 'EXECUTED', order: 5 },
-  { id: 'TESTING & REVIEW', name: 'TESTING & REVIEW', order: 6 },
-  { id: 'TEST DONE', name: 'TEST DONE', order: 7 },
-  { id: 'VALIDATING', name: 'VALIDATING', order: 8 },
-  { id: 'RESOLVED', name: 'RESOLVED', order: 9 },
-  { id: 'DONE', name: 'DONE', order: 10 },
-  { id: 'CLOSED', name: 'CLOSED', order: 11 },
+  { id: 'FUNNEL', name: 'FUNNEL 积压', order: 0 },
+  { id: 'DEFINING', name: 'DEFINING 细化', order: 1 },
+  { id: 'READY', name: 'READY 就绪', order: 2 },
+  { id: 'TO DO', name: 'TO DO 待办', order: 3 },
+  { id: 'EXECUTION', name: 'EXECUTION 执行', order: 4 },
+  { id: 'EXECUTED', name: 'EXECUTED 执行完成', order: 5 },
+  { id: 'TESTING & REVIEW', name: 'TESTING & REVIEW 测试和复核', order: 6 },
+  { id: 'TEST DONE', name: 'TEST DONE 测试完成', order: 7 },
+  { id: 'VALIDATING', name: 'VALIDATING 验证', order: 8 },
+  { id: 'RESOLVED', name: 'RESOLVED 已解决', order: 9 },
+  { id: 'DONE', name: 'DONE 完成', order: 10 },
+  { id: 'CLOSED', name: 'CLOSED 关闭', order: 11 },
 ] as const;
 
 export type ColumnId = typeof BOARD_COLUMNS[number]['id'];

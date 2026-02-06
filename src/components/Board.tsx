@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -199,6 +199,55 @@ export function Board() {
       toast.error(`同步失败: ${error}`);
     }
   };
+
+  // ===== 自动同步定时器 =====
+  const autoSyncIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [autoSyncMinutes, setAutoSyncMinutes] = useState<number>(5);
+
+  // 读取自动同步设置
+  useEffect(() => {
+    const loadAutoSyncSetting = async () => {
+      try {
+        const result = await window.electronAPI.database.settings.get('jira_autoSyncInterval');
+        if (result.success && result.data) {
+          const minutes = parseInt(result.data, 10);
+          if (!isNaN(minutes) && minutes >= 1) {
+            setAutoSyncMinutes(minutes);
+          }
+        }
+      } catch (err) {
+        console.error('[Board] Failed to load auto-sync setting:', err);
+      }
+    };
+    loadAutoSyncSetting();
+  }, []);
+
+  // 设置自动同步定时器
+  useEffect(() => {
+    // 清除旧定时器
+    if (autoSyncIntervalRef.current) {
+      clearInterval(autoSyncIntervalRef.current);
+      autoSyncIntervalRef.current = null;
+    }
+
+    // 只在未拖拽时启用自动同步
+    if (!isDragging && autoSyncMinutes >= 1) {
+      const intervalMs = autoSyncMinutes * 60 * 1000;
+      console.log(`[Board] Auto-sync enabled: every ${autoSyncMinutes} minutes`);
+      
+      autoSyncIntervalRef.current = setInterval(() => {
+        console.log('[Board] Auto-sync triggered');
+        handleSync(false); // 增量同步
+      }, intervalMs);
+    }
+
+    return () => {
+      if (autoSyncIntervalRef.current) {
+        clearInterval(autoSyncIntervalRef.current);
+        autoSyncIntervalRef.current = null;
+      }
+    };
+  }, [isDragging, autoSyncMinutes, handleSync]);
 
   return (
     <div className="flex h-full flex-col bg-[#F4F5F7]">

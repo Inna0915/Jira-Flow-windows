@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, shell, Menu } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getDatabase, closeDatabase, settingsDB, tasksDB, workLogsDB } from './db/schema';
@@ -8,6 +8,7 @@ import { registerWorkLogIPCs } from './ipc/logs';
 import { registerIntegrationIPCs } from './ipc/integration';
 import { registerAIIPCs } from './ipc/ai';
 import { registerIssueIPCs } from './ipc/issues';
+import { registerSystemIPCs } from './ipc/system';
 import { syncService } from './services/SyncService';
 
 // ESM 中 __dirname 替代方案
@@ -21,6 +22,9 @@ let mainWindow: BrowserWindow | null = null;
  */
 function createMainWindow(): void {
   console.log('[Main] Creating main window...');
+  
+  // Disable the default menu bar (File, Edit, etc.) for a polished native look
+  Menu.setApplicationMenu(null);
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -57,6 +61,25 @@ function createMainWindow(): void {
   // 窗口关闭时清理引用
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // INTERCEPT NEW WINDOWS: Force external links to open in default browser
+  // 这防止点击链接时打开空白的 Electron 窗口
+  mainWindow.webContents.setWindowOpenHandler((details) => {
+    const { url } = details;
+    
+    console.log(`[Main] Window open requested for: ${url}`);
+    
+    // Security Check: Only allow http/https protocols
+    if (url.startsWith('https:') || url.startsWith('http:')) {
+      shell.openExternal(url);
+      console.log(`[Main] Opened in external browser: ${url}`);
+    } else {
+      console.warn(`[Main] Blocked window open for non-HTTP URL: ${url}`);
+    }
+    
+    // CRITICAL: Return 'deny' to prevent the white Electron window from creating
+    return { action: 'deny' };
   });
 }
 
@@ -109,6 +132,7 @@ app.whenReady().then(() => {
   registerIntegrationIPCs();
   registerAIIPCs();
   registerIssueIPCs();
+  registerSystemIPCs();
 
   // 初始化同步服务（从数据库加载配置）
   const jiraConfigured = syncService.initializeFromDB();

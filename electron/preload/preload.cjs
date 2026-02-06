@@ -125,6 +125,14 @@ const obsidianAPI = {
   getVaultPath: () => ipcRenderer.invoke('obsidian:get-vault-path'),
 };
 
+// 系统 API
+const systemAPI = {
+  /**
+   * 在系统默认浏览器中打开 Jira Issue
+   */
+  openJiraIssue: (issueKey) => ipcRenderer.invoke('system:open-jira-issue', issueKey),
+};
+
 // AI 配置 API
 const aiAPI = {
   // Profile 管理
@@ -159,6 +167,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   board: boardAPI,
   obsidian: obsidianAPI,
   ai: aiAPI,
+  system: systemAPI,
 });
 
 console.log('[Preload] Electron API exposed to window.electronAPI');

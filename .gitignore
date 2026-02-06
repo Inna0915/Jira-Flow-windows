@@ -26,7 +26,17 @@ dist-ssr
 
 # Electron
 out/
+release/
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Build Output
+dist/
+dist-electron/
+release/
+build/
+
+# Node
+node_modules/

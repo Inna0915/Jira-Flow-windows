@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { Avatar } from './Avatar';
 import type { BoardTask } from '../stores/boardStore';
 
@@ -53,16 +54,26 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         </div>
       )}
 
-      {/* 顶部：Issue Key */}
-      {/* 优化：移除 Sprint 标签（当按 Sprint 过滤时冗余），添加 truncate 防止溢出 */}
-      <div className="mb-1.5 flex items-center gap-2">
-        <span 
-          className="text-xs font-medium text-[#0052CC] hover:underline truncate"
+      {/* 顶部：Issue Key - 可点击在浏览器中打开 */}
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <span
+          className="group inline-flex items-center gap-1 text-xs font-medium text-[#0052CC] hover:text-[#0747A6] cursor-pointer truncate"
           onClick={(e) => {
             e.stopPropagation();
+            e.preventDefault();
+            console.log('[TaskCard] Opening Jira issue:', task.key);
+            if (window.electronAPI?.system?.openJiraIssue) {
+              window.electronAPI.system.openJiraIssue(task.key);
+            } else {
+              console.error('[TaskCard] electronAPI.system not available');
+              // Fallback: try to open directly
+              window.open(`https://jira.example.com/browse/${task.key}`, '_blank');
+            }
           }}
+          title={`在浏览器中打开 ${task.key}`}
         >
-          {task.key}
+          <span className="hover:underline">{task.key}</span>
+          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
         </span>
       </div>
 
