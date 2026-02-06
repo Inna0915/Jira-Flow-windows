@@ -101,7 +101,7 @@ function initializeTables(): void {
         UNIQUE(task_key, log_date)
       );
       
-      -- 2. 迁移旧数据
+      -- 2. 迁移旧数据（去重：只保留每个 task_key + log_date 组合的最新记录）
       INSERT INTO t_work_logs_new (id, task_key, source, summary, log_date, created_at)
       SELECT 
         id,
@@ -113,7 +113,10 @@ function initializeTables(): void {
         COALESCE(comment, action, 'Legacy entry'),
         log_date,
         created_at
-      FROM t_work_logs;
+      FROM t_work_logs
+      WHERE id IN (
+        SELECT MAX(id) FROM t_work_logs GROUP BY task_key, log_date
+      );
       
       -- 3. 删除旧表
       DROP TABLE t_work_logs;
