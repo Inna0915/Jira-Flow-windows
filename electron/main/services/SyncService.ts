@@ -136,17 +136,20 @@ export function normalizeStatus(rawStatus: string): string {
   }
 
   // 5. VALIDATING
+  // Note: "解决" (Resolve) in many workflows means "Ready for Validation"
   if (
     status.includes('validating') || 
     status.includes('验证') ||
-    status.includes('validation')
+    status.includes('validation') ||
+    status.includes('解决') || // Fix: Map "解决" to VALIDATING
+    status.includes('resolve') // Fix: Map "Resolve" to VALIDATING
   ) {
     return 'VALIDATING';
   }
 
   // 6. DONE / RESOLVED / CLOSED
-  // Handle specific end states to match Board Columns
-  if (status.includes('resolved') || status.includes('已解决')) return 'RESOLVED';
+  // Note: "resolved" without "解决" keyword, as "解决" is mapped to VALIDATING above
+  if (status.includes('resolved') && !status.includes('解决')) return 'RESOLVED';
   if (status.includes('closed') || status.includes('关闭')) return 'CLOSED';
   if (status.includes('done') || status.includes('完成') || status.includes('已完成')) return 'DONE';
 
