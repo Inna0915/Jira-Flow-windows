@@ -45,6 +45,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         border border-[#DFE1E6]
         ${isBug ? 'border-l-4 border-l-[#FF5630]' : 'border-l-4 border-l-[#36B37E]'}
         ${isHovered ? 'ring-1 ring-[#4C9AFF]' : ''}
+        w-[190px] h-[210px] flex flex-col
       `}
     >
       {/* Bug 标签 */}
@@ -78,8 +79,8 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       </div>
 
       {/* 中间：Summary */}
-      {/* 优化：确保摘要截断不会溢出 */}
-      <p className="mb-3 text-sm font-normal text-[#172B4D] line-clamp-2 leading-snug break-words">
+      {/* 优化：确保摘要截断不会溢出，使用 flex-1 填充剩余空间 */}
+      <p className="flex-1 mb-3 text-sm font-normal text-[#172B4D] line-clamp-4 leading-snug break-words overflow-hidden">
         {task.summary}
       </p>
 

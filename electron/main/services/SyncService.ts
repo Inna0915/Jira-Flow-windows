@@ -1,5 +1,5 @@
 import { JiraClient, JiraClientConfig } from './JiraClient';
-import { settingsDB, tasksDB, workLogsDB } from '../db/schema';
+import { settingsDB, tasksDB, workLogsDB, getDatabase } from '../db/schema';
 import axios from 'axios';
 
 /**
@@ -601,7 +601,7 @@ export class SyncService {
    * 将 Agile API 的 Issue 转换为任务数据
    * 安全地提取字段，处理可能的 null/undefined
    */
-  private convertAgileIssue(issue: AgileIssue, sprintState: string, sprintName: string): TaskRecord {
+  private convertAgileIssue(issue: AgileIssue, sprintState: string, sprintName: string, syncTimestamp: number): TaskRecord {
     const rawStatus = issue.fields?.status?.name || 'Unknown';
     console.log(`[Mapping] Processing Issue ${issue.key} with Status: "${rawStatus}"`);
     
@@ -666,7 +666,7 @@ export class SyncService {
       due_date: dueDate,
       priority,
       updated_at: updatedAt,
-      synced_at: Date.now(),
+      synced_at: syncTimestamp,
       raw_json: JSON.stringify(issue),
     };
   }
@@ -815,6 +815,7 @@ export class SyncService {
 
   /**
    * 执行完整的 4 步 Agile 同步
+   * 使用 "Sync & Prune" 策略确保本地数据库与 Jira 严格一致
    */
   public async performAgileSync(projectKey: string): Promise<{
     success: true;
@@ -822,19 +823,22 @@ export class SyncService {
     sprintId: number;
     sprintIssues: number;
     backlogIssues: number;
+    pruned: number;
   } | {
     success: false;
     error: string;
     stage?: string;
   }> {
-    console.log('[SyncService] Starting 4-Step Agile Sync...');
+    // 1. 定义统一的同步时间戳
+    const syncTimestamp = Date.now();
+    console.log(`[SyncService] Starting 4-Step Agile Sync (timestamp: ${syncTimestamp})...`);
 
     // Step 1: 检测 Board ID
     const boardResult = await this.detectBoardId(projectKey);
     if (!boardResult.success) {
       console.warn('[SyncService] Step 1 failed, falling back to JQL sync');
       // 回退到 JQL 同步
-      const jqlResult = await this.performJQLSync();
+      const jqlResult = await this.performJQLSync(syncTimestamp);
       if (jqlResult.success) {
         return {
           success: true,
@@ -842,6 +846,7 @@ export class SyncService {
           sprintId: 0,
           sprintIssues: jqlResult.upserted,
           backlogIssues: 0,
+          pruned: jqlResult.pruned,
         };
       }
       return { ...jqlResult, stage: 'step1' };
@@ -874,16 +879,16 @@ export class SyncService {
       backlogIssues = backlogResult.issues;
     }
 
-    // 转换并保存 Sprint 任务
+    // 转换并保存 Sprint 任务（使用统一的 syncTimestamp）
     console.log(`[SyncService] Converting ${sprintIssues.length} sprint issues...`);
     const sprintTasks = sprintIssues.map(issue => 
-      this.convertAgileIssue(issue, sprintState, sprintName)
+      this.convertAgileIssue(issue, sprintState, sprintName, syncTimestamp)
     );
 
-    // 转换并保存 Backlog 任务
+    // 转换并保存 Backlog 任务（使用统一的 syncTimestamp）
     console.log(`[SyncService] Converting ${backlogIssues.length} backlog issues...`);
     const backlogTasks = backlogIssues.map(issue => 
-      this.convertAgileIssue(issue, 'future', 'Backlog')
+      this.convertAgileIssue(issue, 'future', 'Backlog', syncTimestamp)
     );
 
     // 调试：检查转换后的任务
@@ -914,12 +919,15 @@ export class SyncService {
       return { success: false, error: saveResult.error, stage: 'save' };
     }
 
+    // 2. 清理旧数据：删除本次同步未触及的任务（已移出 Sprint 或在 Jira 中被删除）
+    const prunedCount = this.pruneStaleTasks(syncTimestamp);
+
     // 更新最后同步时间
     settingsDB.set('jira_lastSync', String(Date.now()));
     settingsDB.set('jira_syncMethod', 'agile');
 
     // 注意：不记录系统同步日志到工作日志表，工作日志只记录用户完成任务
-    console.log('[SyncService] 4-Step Agile Sync completed successfully');
+    console.log(`[SyncService] 4-Step Agile Sync completed successfully. Pruned ${prunedCount} stale tasks.`);
 
     return {
       success: true,
@@ -927,15 +935,34 @@ export class SyncService {
       sprintId: sprintId,
       sprintIssues: sprintIssues.length,
       backlogIssues: backlogIssues.length,
+      pruned: prunedCount,
     };
   }
 
   /**
-   * 回退：使用 JQL 同步（当 Agile API 不可用时）
+   * 清理过期任务：删除 synced_at 早于当前同步时间戳的任务
+   * 这些任务已从 Jira Sprint/Backlog 中移除
    */
-  public async performJQLSync(): Promise<{
+  private pruneStaleTasks(syncTimestamp: number): number {
+    try {
+      const db = getDatabase();
+      const result = db.prepare('DELETE FROM t_tasks WHERE synced_at < ?').run(syncTimestamp);
+      console.log(`[SyncService] Pruned ${result.changes} stale tasks (synced_at < ${syncTimestamp})`);
+      return result.changes;
+    } catch (error) {
+      console.error('[SyncService] Failed to prune stale tasks:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * 回退：使用 JQL 同步（当 Agile API 不可用时）
+   * 同样使用 "Sync & Prune" 策略确保数据一致性
+   */
+  public async performJQLSync(syncTimestamp?: number): Promise<{
     success: true;
     upserted: number;
+    pruned: number;
   } | {
     success: false;
     error: string;
@@ -945,6 +972,9 @@ export class SyncService {
     if (!this.jiraClient) {
       return { success: false, error: 'Jira 客户端未初始化' };
     }
+
+    // 如果没有提供时间戳，生成一个新的
+    const timestamp = syncTimestamp || Date.now();
 
     const jql = 'assignee = currentUser() ORDER BY updated DESC';
     
@@ -956,7 +986,7 @@ export class SyncService {
       }
 
       const tasks = result.issues.map(issue => 
-        this.convertAgileIssue(issue as unknown as AgileIssue, 'unknown', 'Backlog')
+        this.convertAgileIssue(issue as unknown as AgileIssue, 'unknown', 'Backlog', timestamp)
       );
 
       const saveResult = this.saveTasksToDatabase(tasks);
@@ -964,11 +994,14 @@ export class SyncService {
         return { success: false, error: saveResult.error };
       }
 
+      // 清理旧数据
+      const prunedCount = syncTimestamp ? 0 : this.pruneStaleTasks(timestamp);
+
       settingsDB.set('jira_lastSync', String(Date.now()));
       settingsDB.set('jira_syncMethod', 'jql');
 
       // 注意：不记录系统同步日志到工作日志表，工作日志只记录用户完成任务
-      return { success: true, upserted: tasks.length };
+      return { success: true, upserted: tasks.length, pruned: prunedCount };
     } catch (error) {
       return { success: false, error: String(error) };
     }

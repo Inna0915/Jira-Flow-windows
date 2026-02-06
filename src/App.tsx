@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
 import { Board } from './components/Board';
-import { SettingsPanel } from './components/SettingsPanel';
+import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
 
 function App() {
@@ -51,7 +51,7 @@ function App() {
         <div className="electron-drag flex h-12 items-center border-b border-[#DFE1E6] bg-white px-4">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-[#0052CC]">Jira Flow</span>
-            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v1.1.0</span>
+            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v1.2.0</span>
           </div>
           <div className="ml-auto flex items-center gap-2 electron-no-drag">
             <button
@@ -91,7 +91,7 @@ function App() {
         <main className="flex-1 overflow-hidden">
           {activeTab === 'board' && <Board />}
           {activeTab === 'reports' && <Reports />}
-          {activeTab === 'settings' && <SettingsPanel />}
+          {activeTab === 'settings' && <Settings />}
         </main>
       </div>
     </>

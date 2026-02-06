@@ -8,8 +8,17 @@ import { useTasks } from '../hooks/useTasks';
 import { useBoardStore, BOARD_COLUMNS, SWIMLANES } from '../stores/boardStore';
 
 // 统一列宽常量 - 确保表头和泳道列完全对齐
-export const COLUMN_WIDTH = 280; // px
-export const COLUMN_WIDTH_CLASS = 'w-[280px] min-w-[280px] max-w-[280px]';
+// w-[200px]: 固定宽度 (泳道宽度)
+// min-w-[200px]: 最小宽度，防止挤压
+// flex-shrink-0: 禁止 Flex 容器压缩此元素 (关键!)
+export const COLUMN_WIDTH = 200; // px
+export const COLUMN_WIDTH_CLASS = 'w-[200px] min-w-[200px] flex-shrink-0 border-r border-[#DFE1E6] last:border-r-0';
+
+// 隐藏的列 - 已完成状态不显示
+const HIDDEN_COLUMNS = ['RESOLVED', 'DONE', 'CLOSED'];
+
+// 过滤后的可见列
+const VISIBLE_COLUMNS = BOARD_COLUMNS.filter(col => !HIDDEN_COLUMNS.includes(col.id));
 
 export function Board() {
   const {
@@ -47,10 +56,19 @@ export function Board() {
 
     if (!destination) return;
 
-    const destParts = destination.droppableId.split(':');
-    const targetColumn = destParts[1];
+    // 解析 destination.droppableId
+    // 假设 droppableId 格式为 "swimlaneId:columnId" 或直接是 "columnId"
+    // 这里沿用你代码中的逻辑
+    let targetColumn = destination.droppableId;
+    if (destination.droppableId.includes(':')) {
+      const destParts = destination.droppableId.split(':');
+      targetColumn = destParts[1];
+    }
+    
     const task = tasks.find(t => t.key === draggableId);
     if (!task) return;
+
+    if (task.status === targetColumn) return;
 
     // 工作流验证
     const validation = validateWorkflow(task, targetColumn);
@@ -251,16 +269,9 @@ export function Board() {
 
   return (
     <div className="flex h-full flex-col bg-[#F4F5F7]">
-      {/* 顶部工具栏 */}
-      <div className="flex items-center justify-between border-b border-[#DFE1E6] bg-white px-4 py-2">
+      {/* 顶部工具栏 - Clean Header */}
+      <div className="flex-none flex items-center justify-between border-b border-[#DFE1E6] bg-white px-4 py-2 z-20 relative shadow-sm">
         <div className="flex items-center gap-4">
-          <h2 className="text-base font-semibold text-[#172B4D]">看板</h2>
-          
-          {/* 任务数量调试信息 */}
-          <span className="rounded bg-[#E3FCEF] px-2 py-0.5 text-xs font-medium text-[#006644]">
-            总任务: {tasks.length}
-          </span>
-          
           {/* Sprint 选择器 */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-[#5E6C84]">Sprint:</span>
@@ -277,74 +288,49 @@ export function Board() {
               <option value="backlog">Backlog</option>
             </select>
           </div>
-
-          {/* 同步状态 */}
-          <span className="text-xs text-[#5E6C84]">
-            同步于 {formatLastSync(lastSync)}
-          </span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleSync(false)}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 rounded border border-[#DFE1E6] bg-white px-3 py-1.5 text-xs font-medium text-[#172B4D] hover:bg-[#F4F5F7] disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            增量同步
-          </button>
+        {/* Right side: Last Updated + Sync Icon */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-[#5E6C84]">
+            Last updated: {formatLastSync(lastSync)}
+          </span>
           <button
             onClick={() => handleSync(true)}
             disabled={isLoading}
-            className="flex items-center gap-1.5 rounded bg-[#0052CC] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0747A6] disabled:opacity-50"
+            className="p-1.5 rounded-md text-[#5E6C84] hover:bg-[#F4F5F7] hover:text-[#0052CC] disabled:opacity-50 transition-colors"
+            title="Sync Now"
           >
-            全量同步
-          </button>
-          
-          {/* 调试按钮：清空所有任务 */}
-          <button
-            onClick={async () => {
-              if (confirm('确定要清空所有任务数据吗？')) {
-                const result = await window.electronAPI.database.tasks.clearAll();
-                if (result.success) {
-                  toast.success(`已清空 ${result.data?.deletedCount || 0} 个任务`);
-                  await refreshTasks();
-                } else {
-                  toast.error('清空失败');
-                }
-              }
-            }}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 rounded border border-[#FF5630] bg-white px-3 py-1.5 text-xs font-medium text-[#FF5630] hover:bg-[#FFEBE6] disabled:opacity-50"
-            title="调试用：清空本地数据库"
-          >
-            清空数据
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* 错误提示 */}
       {error && (
-        <div className="mx-4 mt-2 flex items-center gap-2 rounded border border-[#FF5630]/20 bg-[#FFEBE6] px-3 py-2 text-xs text-[#FF5630]">
+        <div className="flex-none mx-4 mt-2 flex items-center gap-2 rounded border border-[#FF5630]/20 bg-[#FFEBE6] px-3 py-2 text-xs text-[#FF5630]">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
       )}
 
       {/* ===== 看板主体 - 统一滚动容器 ===== */}
-      <div className={`flex-1 overflow-auto bg-[#F4F5F7] ${isDragging ? 'cursor-grabbing' : ''}`}>
-        {/* Canvas 层 - min-w-max 确保宽度等于所有列宽之和 */}
-        <div className="flex flex-col min-w-max h-full p-4">
+      <div className={`flex-1 overflow-x-auto overflow-y-hidden bg-[#F4F5F7] ${isDragging ? 'cursor-grabbing' : ''}`}>
+        
+        {/* Canvas 层 - min-w-full 确保宽度等于所有列宽之和 */}
+        <div className="flex flex-col min-w-full h-full">
           
-          <DragDropContext onDragEnd={onDragEnd}>
-            {/* 1. 列标题 (Sticky Top) */}
-            <div className="flex sticky top-0 z-20 bg-[#F4F5F7] border-b-2 border-[#DFE1E6]">
-              {BOARD_COLUMNS.map((column, index) => (
+          <DragDropContext 
+            onDragStart={() => setIsDragging(true)}
+            onDragEnd={onDragEnd}
+          >
+            {/* 1. 列标题 - 无 sticky 列，统一滚动 */}
+            <div className="flex-none flex flex-row min-w-full bg-[#F4F5F7] border-b-2 border-[#DFE1E6]">
+              {VISIBLE_COLUMNS.map((column) => (
                 <div 
                   key={column.id}
-                  className={`${COLUMN_WIDTH_CLASS} px-2 py-3 text-center border-r border-[#DFE1E6] last:border-r-0 ${
-                    index === 0 ? 'sticky left-0 z-30 bg-[#F4F5F7]' : ''
-                  }`}
+                  // 使用统一的列宽类
+                  className={`px-2 py-3 text-center ${COLUMN_WIDTH_CLASS}`}
                 >
                   <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B778C]">
                     {column.name}
@@ -353,8 +339,8 @@ export function Board() {
               ))}
             </div>
 
-            {/* 2. 泳道容器 */}
-            <div className="flex flex-col">
+            {/* 2. 泳道容器 - 允许垂直滚动 */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-full">
               {SWIMLANES.map((swimlane) => (
                 <Swimlane
                   key={swimlane.id}
@@ -364,14 +350,21 @@ export function Board() {
                   onToggle={() => toggleSwimlane(swimlane.id)}
                   getTasksForColumn={(columnId) => getTasksBySwimlaneAndColumn(swimlane.id, columnId)}
                   onTaskClick={handleTaskClick}
+                  // 只传递可见列的 ID
+                  visibleColumns={VISIBLE_COLUMNS.map(c => c.id)}
+                  // 传递列宽样式，确保 Swimlane 内部对齐
+                  columnWidthClass={COLUMN_WIDTH_CLASS}
                 />
               ))}
+              
+              {/* 空白填充 */}
+              <div className="h-8"></div>
             </div>
           </DragDropContext>
 
           {/* 空状态 */}
           {tasks.length === 0 && !isLoading && (
-            <div className="flex h-64 flex-col items-center justify-center text-[#5E6C84]">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-[#5E6C84] pointer-events-none">
               <div className="mb-4 rounded-full bg-[#DFE1E6] p-4">
                 <RefreshCw className="h-8 w-8" />
               </div>
@@ -382,7 +375,7 @@ export function Board() {
 
           {/* 加载状态 */}
           {isLoading && tasks.length === 0 && (
-            <div className="flex h-64 items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-50">
               <div className="flex items-center gap-3 text-[#5E6C84]">
                 <RefreshCw className="h-5 w-5 animate-spin" />
                 <span>正在加载任务...</span>

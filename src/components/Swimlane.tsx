@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { TaskCard } from './TaskCard';
 import type { BoardTask, SwimlaneType } from '../stores/boardStore';
 import { BOARD_COLUMNS } from '../stores/boardStore';
-import { COLUMN_WIDTH_CLASS } from './Board';
 
 interface SwimlaneProps {
   id: SwimlaneType;
@@ -12,6 +11,8 @@ interface SwimlaneProps {
   onToggle: () => void;
   getTasksForColumn: (columnId: string) => BoardTask[];
   onTaskClick: (task: BoardTask) => void;
+  visibleColumns: string[];
+  columnWidthClass?: string;
 }
 
 export function Swimlane({ 
@@ -20,10 +21,15 @@ export function Swimlane({
   isCollapsed, 
   onToggle, 
   getTasksForColumn,
-  onTaskClick 
+  onTaskClick,
+  visibleColumns,
+  columnWidthClass = 'w-[200px] min-w-[200px] flex-shrink-0 border-r border-[#DFE1E6]'
 }: SwimlaneProps) {
-  // 计算此泳道的总任务数
-  const totalTasks = BOARD_COLUMNS.reduce(
+  // 过滤可见列
+  const columns = BOARD_COLUMNS.filter(col => visibleColumns.includes(col.id));
+  
+  // 计算此泳道的总任务数（仅可见列）
+  const totalTasks = columns.reduce(
     (sum, col) => sum + getTasksForColumn(col.id).length, 
     0
   );
@@ -87,8 +93,8 @@ export function Swimlane({
 
       {/* 泳道内容 - 使用 Flex 布局替代 Grid，确保与表头对齐 */}
       {!isCollapsed && (
-        <div className="flex border-t border-[#DFE1E6]">
-          {BOARD_COLUMNS.map((column) => {
+        <div className="flex flex-row min-w-full">
+          {columns.map((column) => {
             const tasks = getTasksForColumn(column.id);
             const droppableId = `${id}:${column.id}`;
 
@@ -99,9 +105,9 @@ export function Swimlane({
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className={`
-                      ${COLUMN_WIDTH_CLASS} min-h-[200px] border-r border-[#DFE1E6] p-2
+                      ${columnWidthClass}
+                      min-h-[200px] p-2
                       ${snapshot.isDraggingOver ? 'bg-[#DEEBFF]/50' : 'bg-white'}
-                      ${column.id === 'CLOSED' ? 'border-r-0' : ''}
                     `}
                   >
                     {/* 任务列表 */}
