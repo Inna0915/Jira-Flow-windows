@@ -80,6 +80,97 @@ interface AgileIssue {
 }
 
 /**
+ * 状态名称标准化 - 基于关键词的模糊匹配
+ * 将各种变体统一为标准列 ID
+ */
+export function normalizeStatus(rawStatus: string): string {
+  if (!rawStatus) return 'TODO';
+  const status = rawStatus.toLowerCase().trim();
+
+  // 1. IN PROGRESS (Running, Building, Processing)
+  if (
+    status.includes('progress') || 
+    status.includes('building') || 
+    status.includes('processing') || 
+    status.includes('running') ||
+    status.includes('执行') || 
+    status.includes('处理中') || 
+    status.includes('构建中') ||
+    status.includes('进行中')
+  ) {
+    return 'INPROGRESS';
+  }
+
+  // 2. EXECUTED (Build Done, Completed execution)
+  if (
+    (status.includes('build') && status.includes('done')) || 
+    status.includes('executed') || 
+    status.includes('构建完成') ||
+    status.includes('执行完成')
+  ) {
+    return 'EXECUTED';
+  }
+
+  // 3. TESTING & REVIEW
+  if (
+    status.includes('review') || 
+    status.includes('testing') || 
+    status.includes('integrating') || 
+    status.includes('审核') || 
+    status.includes('测试中') ||
+    status.includes('代码审查')
+  ) {
+    return 'REVIEW';
+  }
+
+  // 4. TEST DONE
+  if (
+    (status.includes('test') && status.includes('done')) || 
+    status.includes('测试完成') ||
+    status.includes('测试通过')
+  ) {
+    return 'TESTDONE';
+  }
+
+  // 5. VALIDATING
+  if (
+    status.includes('validating') || 
+    status.includes('验证') ||
+    status.includes('validation')
+  ) {
+    return 'VALIDATING';
+  }
+
+  // 6. DONE / RESOLVED / CLOSED
+  if (status.includes('resolved') || status.includes('已解决')) return 'RESOLVED';
+  if (status.includes('closed') || status.includes('关闭')) return 'CLOSED';
+  if (status.includes('done') || status.includes('完成') || status.includes('已完成')) return 'DONE';
+
+  // 7. TO DO / BACKLOG / OPEN
+  if (
+    status.includes('backlog') || 
+    status.includes('todo') || 
+    status.includes('to do') || 
+    status.includes('open') || 
+    status.includes('new') ||
+    status.includes('待办') ||
+    status.includes('新建') ||
+    status.includes('未开始')
+  ) {
+    return 'TODO';
+  }
+
+  // 8. PRE-WORK (Optional)
+  if (status.includes('funnel') || status.includes('漏斗')) return 'FUNNEL';
+  if (status.includes('defin') || status.includes('定义')) return 'DEFINING';
+  if (status.includes('ready') || status.includes('就绪')) return 'READY';
+
+  // Default Catch-all
+  console.log(`[normalizeStatus] Unmatched status: "${rawStatus}", defaulting to TODO`);
+  return 'TODO';
+}
+
+/**
  * 同步任务的数据库记录格式
  */
 export interface TaskRecord {

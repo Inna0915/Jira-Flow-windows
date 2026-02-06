@@ -1,52 +1,7 @@
 import { ipcMain } from 'electron';
 import { JiraClient } from '../services/JiraClient';
 import { getDatabase, settingsDB } from '../db/schema';
-
-/**
- * 状态名称标准化映射
- * 将各种变体统一为标准列 ID
- */
-const STATUS_NORMALIZE_MAP: Record<string, string> = {
-  // To Do / Backlog
-  'to do': 'todo',
-  'todo': 'todo',
-  'backlog': 'todo',
-  'open': 'todo',
-  'new': 'todo',
-  
-  // In Progress
-  'in progress': 'inprogress',
-  'inprogress': 'inprogress',
-  'progress': 'inprogress',
-  'doing': 'inprogress',
-  'development': 'inprogress',
-  'developing': 'inprogress',
-  
-  // Review / Validation
-  'review': 'review',
-  'in review': 'review',
-  'code review': 'review',
-  'validation': 'review',
-  'validating': 'review',
-  'verify': 'review',
-  'verified': 'review',
-  
-  // Done
-  'done': 'done',
-  'closed': 'done',
-  'complete': 'done',
-  'completed': 'done',
-  'resolved': 'done',
-  'finished': 'done',
-};
-
-/**
- * 标准化状态名称
- */
-function normalizeStatus(status: string): string {
-  const normalized = status.toLowerCase().trim();
-  return STATUS_NORMALIZE_MAP[normalized] || normalized;
-}
+import { normalizeStatus } from '../services/SyncService';
 
 /**
  * 获取 JiraClient 实例
@@ -80,7 +35,7 @@ export function registerIssueIPCs(): void {
    * 在拖拽卡片时同步更新 Jira 状态
    */
   ipcMain.handle('jira:transition-issue-by-column', async (_, { key, targetColumn }: { key: string; targetColumn: string }) => {
-    console.log(`[IPC] Transition issue ${key} to column ${targetColumn}`);
+    console.log(`[Jira] Transition request: ${key} -> ${targetColumn}`);
     
     const client = getJiraClient();
     if (!client) {
@@ -95,42 +50,54 @@ export function registerIssueIPCs(): void {
       }
 
       const transitions = transitionsResult.transitions;
-      console.log(`[IPC] Available transitions for ${key}:`, transitions.map(t => t.name));
+      console.log(`[Jira] Available transitions for ${key}:`, transitions.map(t => t.name));
 
-      // 2. 查找匹配的 transition
-      // 首先尝试通过名称匹配
-      let matchedTransition = transitions.find(t => {
-        const normalizedTransitionName = normalizeStatus(t.name);
-        return normalizedTransitionName === targetColumn;
-      });
-
-      // 如果没有直接匹配，尝试获取每个 transition 的详细信息（包括 to 状态）
-      if (!matchedTransition) {
-        console.log(`[IPC] No direct match found, checking detailed transitions...`);
+      // 2. 查找匹配的 transition - 使用详细日志
+      console.log(`[Jira] Checking transitions for ${key} to reach column ${targetColumn}...`);
+      
+      let matchedTransition = null;
+      
+      for (const t of transitions) {
+        // 获取 transition 的目标状态名称
+        // 注意：transitions API 返回的格式可能包含 to 字段
+        const targetStatus = t.name; // transition 名称通常就是目标状态
+        const mappedColumn = normalizeStatus(targetStatus);
         
-        // 获取任务详情来检查当前状态
-        const issueResult = await client.getIssue(key);
-        if (issueResult.success) {
-          const currentStatus = issueResult.success ? issueResult.issue.fields.status.name : null;
-          console.log(`[IPC] Current status: ${currentStatus}`);
+        console.log(`   - Option: "${t.name}" -> Mapped: ${mappedColumn}`);
+        
+        if (mappedColumn === targetColumn.toUpperCase()) {
+          console.log(`   >>> MATCH FOUND! Executing transition ${t.id}`);
+          matchedTransition = t;
+          break;
         }
+      }
 
-        // 尝试部分匹配（transition 名称包含目标列关键词）
+      // 如果没有直接匹配，尝试部分匹配
+      if (!matchedTransition) {
+        console.log(`[Jira] No exact match found, trying fuzzy matching...`);
         const targetKeywords = targetColumn.toLowerCase().split(/\s+/);
-        matchedTransition = transitions.find(t => {
+        
+        for (const t of transitions) {
           const nameLower = t.name.toLowerCase();
-          return targetKeywords.some(keyword => nameLower.includes(keyword));
-        });
+          const hasMatch = targetKeywords.some(keyword => nameLower.includes(keyword));
+          
+          if (hasMatch) {
+            console.log(`   >>> FUZZY MATCH: "${t.name}" contains keywords from "${targetColumn}"`);
+            matchedTransition = t;
+            break;
+          }
+        }
       }
 
       if (!matchedTransition) {
+        console.log(`[Jira] ERROR: No valid transition found to "${targetColumn}"`);
         return { 
           success: false, 
           error: `No valid transition found to "${targetColumn}". Available: ${transitions.map(t => t.name).join(', ')}` 
         };
       }
 
-      console.log(`[IPC] Matched transition: ${matchedTransition.name} (id: ${matchedTransition.id})`);
+      console.log(`[Jira] Executing transition: ${matchedTransition.name} (id: ${matchedTransition.id})`);
 
       // 3. 执行 transition
       const transitionResult = await client.transitionIssue(key, matchedTransition.id);
@@ -146,6 +113,8 @@ export function registerIssueIPCs(): void {
         }
         return { success: false, error: transitionResult.error };
       }
+
+      console.log(`[Jira] Transition successful: ${key} -> ${matchedTransition.name}`);
 
       // 4. 更新本地数据库
       try {
@@ -170,10 +139,10 @@ export function registerIssueIPCs(): void {
             key
           );
           
-          console.log(`[IPC] Local DB updated for ${key}: status=${issue.fields.status.name}, column=${targetColumn}`);
+          console.log(`[Jira] Local DB updated: ${key} status=${issue.fields.status.name}, column=${targetColumn}`);
         }
       } catch (dbError) {
-        console.error('[IPC] Failed to update local DB:', dbError);
+        console.error('[Jira] Failed to update local DB:', dbError);
         // DB 更新失败不影响返回成功，因为 Jira 已经更新了
       }
 
@@ -183,7 +152,7 @@ export function registerIssueIPCs(): void {
       };
 
     } catch (error) {
-      console.error('[IPC] Transition issue error:', error);
+      console.error('[Jira] Transition issue error:', error);
       return { success: false, error: String(error) };
     }
   });
