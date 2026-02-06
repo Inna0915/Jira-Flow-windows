@@ -353,7 +353,7 @@ export function SettingsPanel() {
 
   const handleAddTemplate = () => {
     const newTemplate: PromptTemplate = {
-      id: `temp-${Date.now()}`,
+      id: `tpl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: '新模板',
       description: '请输入描述',
       content: '你是一个专业的项目经理。请根据以下工作日志生成报告。\n\n工作日志数据：\n{{logs}}\n\n请生成报告：',
@@ -366,10 +366,10 @@ export function SettingsPanel() {
   const handleSaveTemplates = async () => {
     console.log('[Settings] Saving templates:', promptTemplates);
     try {
-      // 确保所有模板都有有效的 ID
+      // 确保所有模板都有有效的 ID（使用简单的 UUID 生成器）
       const validTemplates = promptTemplates.map(t => ({
         ...t,
-        id: t.id || crypto.randomUUID(),
+        id: t.id || `tpl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       }));
       
       const result = await window.electronAPI.ai.saveTemplates(validTemplates);
@@ -377,6 +377,8 @@ export function SettingsPanel() {
       
       if (result.success) {
         toast.success('模板已保存');
+        // 更新状态中的 ID（如果有新生成的）
+        setPromptTemplates(validTemplates);
         // 重新加载以确认保存成功
         await loadPromptTemplates();
       } else {
