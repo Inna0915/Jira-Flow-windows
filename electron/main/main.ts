@@ -6,6 +6,7 @@ import { registerDatabaseIPCs } from './ipc/database';
 import { registerJiraIPCs } from './ipc/jira';
 import { registerWorkLogIPCs } from './ipc/logs';
 import { registerIntegrationIPCs } from './ipc/integration';
+import { registerAIIPCs } from './ipc/ai';
 import { syncService } from './services/SyncService';
 
 // ESM 中 __dirname 替代方案
@@ -105,6 +106,7 @@ app.whenReady().then(() => {
   registerJiraIPCs();
   registerWorkLogIPCs();
   registerIntegrationIPCs();
+  registerAIIPCs();
 
   // 初始化同步服务（从数据库加载配置）
   const jiraConfigured = syncService.initializeFromDB();

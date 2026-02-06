@@ -117,12 +117,66 @@ const obsidianAPI = {
   getVaultPath: () => ipcRenderer.invoke('obsidian:get-vault-path'),
 };
 
+// AI 配置 API
+const aiAPI = {
+  /**
+   * 获取所有 AI Profiles
+   */
+  getProfiles: () => ipcRenderer.invoke('ai:get-profiles'),
+  
+  /**
+   * 保存所有 AI Profiles
+   */
+  saveProfiles: (profiles) => ipcRenderer.invoke('ai:save-profiles', profiles),
+  
+  /**
+   * 添加新的 AI Profile
+   */
+  addProfile: (profile) => ipcRenderer.invoke('ai:add-profile', profile),
+  
+  /**
+   * 更新 AI Profile
+   */
+  updateProfile: (profileId, updates) => ipcRenderer.invoke('ai:update-profile', profileId, updates),
+  
+  /**
+   * 删除 AI Profile
+   */
+  deleteProfile: (profileId) => ipcRenderer.invoke('ai:delete-profile', profileId),
+  
+  /**
+   * 设置激活的 Profile
+   */
+  setActiveProfile: (profileId) => ipcRenderer.invoke('ai:set-active-profile', profileId),
+  
+  /**
+   * 获取当前激活的 Profile
+   */
+  getActiveProfile: () => ipcRenderer.invoke('ai:get-active-profile'),
+  
+  /**
+   * 测试 AI 连接
+   */
+  testConnection: (config) => ipcRenderer.invoke('ai:test-connection', config),
+  
+  /**
+   * 生成报告
+   */
+  generateReport: (prompt) => ipcRenderer.invoke('ai:generate-report', prompt),
+  
+  /**
+   * 获取 Provider 预设模板
+   */
+  getProviderTemplates: () => ipcRenderer.invoke('ai:get-provider-templates'),
+};
+
 // 将 API 暴露给渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
   database: databaseAPI,
   jira: jiraAPI,
   board: boardAPI,
   obsidian: obsidianAPI,
+  ai: aiAPI,
 });
 
 console.log('[Preload] Electron API exposed to window.electronAPI');

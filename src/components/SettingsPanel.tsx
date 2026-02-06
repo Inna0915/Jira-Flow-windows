@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Upload, X, Check, FolderKanban } from 'lucide-react';
+import { 
+  User, Upload, X, Check, FolderKanban, 
+  Sparkles, Bot, Brain, Cloud, Settings, 
+  Plus, Search, Trash2, Eye, EyeOff, 
+  ExternalLink, TestTube, CheckCircle2, XCircle,
+  ChevronDown
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 interface JiraConfig {
@@ -17,6 +23,40 @@ interface AvatarSettings {
 interface ObsidianConfig {
   vaultPath: string;
 }
+
+type AIProvider = 'openai' | 'deepseek' | 'moonshot' | 'qwen' | 'custom';
+
+interface AIProfile {
+  id: string;
+  name: string;
+  provider: AIProvider;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  isActive: boolean;
+}
+
+interface ProviderTemplate {
+  name: string;
+  baseUrl: string;
+  defaultModel: string;
+}
+
+const PROVIDER_ICONS: Record<AIProvider, React.ReactNode> = {
+  openai: <Brain className="h-4 w-4" />,
+  deepseek: <Bot className="h-4 w-4" />,
+  moonshot: <Sparkles className="h-4 w-4" />,
+  qwen: <Cloud className="h-4 w-4" />,
+  custom: <Settings className="h-4 w-4" />,
+};
+
+const PROVIDER_COLORS: Record<AIProvider, string> = {
+  openai: '#10A37F',
+  deepseek: '#4D6BFA',
+  moonshot: '#000000',
+  qwen: '#1677FF',
+  custom: '#5E6C84',
+};
 
 export function SettingsPanel() {
   const [jiraConfig, setJiraConfig] = useState<JiraConfig>({
@@ -39,10 +79,31 @@ export function SettingsPanel() {
     vaultPath: '',
   });
 
+  // AI Profile 设置
+  const [aiProfiles, setAiProfiles] = useState<AIProfile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAddTemplate, setShowAddTemplate] = useState(false);
+  const [providerTemplates, setProviderTemplates] = useState<Record<AIProvider, ProviderTemplate> | null>(null);
+  
+  // 表单状态
+  const [formData, setFormData] = useState<Partial<AIProfile>>({
+    name: '',
+    provider: 'moonshot',
+    baseUrl: '',
+    apiKey: '',
+    model: '',
+  });
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{ success: boolean; message: string } | null>(null);
+
   useEffect(() => {
     loadConfig();
     loadSavedAvatars();
     loadObsidianConfig();
+    loadAIProfiles();
+    loadProviderTemplates();
   }, []);
 
   const loadConfig = async () => {
@@ -100,6 +161,168 @@ export function SettingsPanel() {
       setSavedAvatars([]);
     }
   };
+
+  // ===== AI Profile 相关函数 =====
+  
+  const loadProviderTemplates = async () => {
+    try {
+      const result = await window.electronAPI.ai.getProviderTemplates();
+      if (result.success) {
+        setProviderTemplates(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to load provider templates:', error);
+    }
+  };
+
+  const loadAIProfiles = async () => {
+    try {
+      const result = await window.electronAPI.ai.getProfiles();
+      if (result.success) {
+        const profiles = result.data || [];
+        setAiProfiles(profiles);
+        // 如果有 profile，选择第一个
+        if (profiles.length > 0 && !selectedProfileId) {
+          setSelectedProfileId(profiles[0].id);
+          setFormData(profiles[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load AI profiles:', error);
+      toast.error('加载 AI 配置失败');
+    }
+  };
+
+  const handleAddProfile = async (provider: AIProvider) => {
+    if (!providerTemplates) return;
+    
+    const template = providerTemplates[provider];
+    const newProfile: Omit<AIProfile, 'id'> = {
+      name: template.name,
+      provider,
+      baseUrl: template.baseUrl,
+      apiKey: '',
+      model: template.defaultModel,
+      isActive: aiProfiles.length === 0, // 第一个自动激活
+    };
+
+    try {
+      const result = await window.electronAPI.ai.addProfile(newProfile);
+      if (result.success && 'profile' in result) {
+        setAiProfiles(prev => [...prev, result.profile]);
+        setSelectedProfileId(result.profile.id);
+        setFormData(result.profile);
+        setShowAddTemplate(false);
+        toast.success('配置已添加');
+      } else if (!result.success && 'error' in result) {
+        toast.error(result.error || '添加失败');
+      }
+    } catch (error) {
+      toast.error('添加配置失败');
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!selectedProfileId) return;
+    
+    try {
+      const result = await window.electronAPI.ai.updateProfile(selectedProfileId, formData);
+      if (result.success) {
+        setAiProfiles(prev => prev.map(p => 
+          p.id === selectedProfileId ? { ...p, ...formData } as AIProfile : p
+        ));
+        toast.success('配置已保存');
+      } else {
+        toast.error(result.error || '保存失败');
+      }
+    } catch (error) {
+      toast.error('保存配置失败');
+    }
+  };
+
+  const handleDeleteProfile = async (profileId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      const result = await window.electronAPI.ai.deleteProfile(profileId);
+      if (result.success) {
+        const updated = aiProfiles.filter(p => p.id !== profileId);
+        setAiProfiles(updated);
+        if (selectedProfileId === profileId) {
+          setSelectedProfileId(updated.length > 0 ? updated[0].id : null);
+          setFormData(updated.length > 0 ? updated[0] : { name: '', provider: 'moonshot', baseUrl: '', apiKey: '', model: '' });
+        }
+        toast.success('配置已删除');
+      } else {
+        toast.error(result.error || '删除失败');
+      }
+    } catch (error) {
+      toast.error('删除配置失败');
+    }
+  };
+
+  const handleSetActiveProfile = async (profileId: string) => {
+    try {
+      const result = await window.electronAPI.ai.setActiveProfile(profileId);
+      if (result.success) {
+        setAiProfiles(prev => prev.map(p => ({
+          ...p,
+          isActive: p.id === profileId
+        })));
+        toast.success('已切换激活配置');
+      } else {
+        toast.error(result.error || '切换失败');
+      }
+    } catch (error) {
+      toast.error('切换配置失败');
+    }
+  };
+
+  const handleTestConnection = async () => {
+    if (!formData.baseUrl || !formData.apiKey || !formData.model) {
+      toast.error('请填写 Base URL、API Key 和 Model');
+      return;
+    }
+
+    setIsTestingConnection(true);
+    setConnectionStatus(null);
+    
+    try {
+      const result = await window.electronAPI.ai.testConnection({
+        baseUrl: formData.baseUrl,
+        apiKey: formData.apiKey,
+        model: formData.model,
+      });
+      
+      if (result.success) {
+        setConnectionStatus({ success: true, message: `连接成功 (${result.latency})` });
+        toast.success(`连接成功 (${result.latency})`);
+      } else {
+        setConnectionStatus({ success: false, message: result.error || '连接失败' });
+        toast.error(result.error || '连接失败');
+      }
+    } catch (error) {
+      setConnectionStatus({ success: false, message: '测试连接出错' });
+      toast.error('测试连接出错');
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const handleSelectProfile = (profile: AIProfile) => {
+    setSelectedProfileId(profile.id);
+    setFormData(profile);
+    setConnectionStatus(null);
+  };
+
+  const filteredProfiles = aiProfiles.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.provider.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const selectedProfile = aiProfiles.find(p => p.id === selectedProfileId);
+
+  // ===== 头像相关函数 =====
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -177,7 +400,7 @@ export function SettingsPanel() {
     }
   };
 
-  const handleTestConnection = async () => {
+  const handleTestJiraConnection = async () => {
     if (!jiraConfig.host || !jiraConfig.username || !jiraConfig.password) {
       toast.error('请填写所有必填字段');
       return;
@@ -203,7 +426,7 @@ export function SettingsPanel() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveJiraConfig = async () => {
     if (!jiraConfig.host || !jiraConfig.username || !jiraConfig.password) {
       toast.error('请填写所有必填字段');
       return;
@@ -237,7 +460,261 @@ export function SettingsPanel() {
       <h2 className="mb-6 text-2xl font-bold text-[#172B4D]">设置</h2>
 
       <div className="mx-auto w-full max-w-3xl space-y-6">
-        {/* Jira 配置卡片 */}
+        {/* ===== AI 配置卡片 ===== */}
+        <div className="rounded-lg border border-[#DFE1E6] bg-white shadow-sm overflow-hidden">
+          <div className="border-b border-[#DFE1E6] bg-[#FAFBFC] px-6 py-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded bg-gradient-to-br from-[#0052CC] to-[#00B8D9] text-white">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <h3 className="text-lg font-semibold text-[#172B4D]">AI 模型配置</h3>
+            </div>
+          </div>
+
+          <div className="h-[500px] flex">
+            {/* 左侧：Profile 列表 */}
+            <div className="w-[280px] border-r border-[#DFE1E6] bg-[#FAFBFC] flex flex-col">
+              {/* 搜索和添加 */}
+              <div className="p-3 border-b border-[#DFE1E6] space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#5E6C84]" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="搜索配置..."
+                    className="w-full rounded border border-[#DFE1E6] bg-white pl-7 pr-2 py-1.5 text-xs text-[#172B4D] placeholder-[#C1C7D0] focus:border-[#4C9AFF] focus:outline-none"
+                  />
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowAddTemplate(!showAddTemplate)}
+                    className="w-full flex items-center justify-center gap-1.5 rounded bg-[#0052CC] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0747A6]"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    添加配置
+                    <ChevronDown className={`h-3 w-3 transition-transform ${showAddTemplate ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {/* Provider 模板下拉菜单 */}
+                  {showAddTemplate && (
+                    <div className="absolute top-full left-0 right-0 mt-1 rounded border border-[#DFE1E6] bg-white shadow-lg z-10">
+                      {providerTemplates && Object.entries(providerTemplates).map(([key, template]) => (
+                        <button
+                          key={key}
+                          onClick={() => handleAddProfile(key as AIProvider)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-[#172B4D] hover:bg-[#F4F5F7] first:rounded-t last:rounded-b"
+                        >
+                          <span style={{ color: PROVIDER_COLORS[key as AIProvider] }}>
+                            {PROVIDER_ICONS[key as AIProvider]}
+                          </span>
+                          {template.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Profile 列表 */}
+              <div className="flex-1 overflow-y-auto">
+                {filteredProfiles.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-[#5E6C84]">
+                    暂无配置
+                  </div>
+                ) : (
+                  filteredProfiles.map((profile) => (
+                    <div
+                      key={profile.id}
+                      onClick={() => handleSelectProfile(profile)}
+                      className={`group flex items-center gap-2 px-3 py-2.5 cursor-pointer border-b border-[#DFE1E6] hover:bg-white ${
+                        selectedProfileId === profile.id ? 'bg-white border-l-4 border-l-[#0052CC]' : 'border-l-4 border-l-transparent'
+                      }`}
+                    >
+                      <span style={{ color: PROVIDER_COLORS[profile.provider] }}>
+                        {PROVIDER_ICONS[profile.provider]}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-[#172B4D] truncate">
+                          {profile.name}
+                        </div>
+                        <div className="text-[10px] text-[#5E6C84] uppercase">{profile.provider}</div>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* 激活开关 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetActiveProfile(profile.id);
+                          }}
+                          className={`w-8 h-4 rounded-full transition-colors ${
+                            profile.isActive ? 'bg-[#36B37E]' : 'bg-[#C1C7D0]'
+                          }`}
+                          title={profile.isActive ? '已激活' : '点击激活'}
+                        >
+                          <div className={`w-3 h-3 rounded-full bg-white mt-0.5 transition-transform ${
+                            profile.isActive ? 'translate-x-4' : 'translate-x-0.5'
+                          }`} />
+                        </button>
+                        
+                        {/* 删除按钮 */}
+                        <button
+                          onClick={(e) => handleDeleteProfile(profile.id, e)}
+                          className="p-1 rounded text-[#5E6C84] hover:bg-[#FFEBE6] hover:text-[#DE350B]"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* 右侧：详情表单 */}
+            <div className="flex-1 p-6 overflow-y-auto">
+              {!selectedProfile ? (
+                <div className="h-full flex flex-col items-center justify-center text-[#5E6C84]">
+                  <Bot className="h-12 w-12 mb-3 text-[#C1C7D0]" />
+                  <p className="text-sm">选择或添加一个 AI 配置</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* 表单头部 */}
+                  <div className="flex items-center justify-between pb-3 border-b border-[#DFE1E6]">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={formData.name || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                        className="text-lg font-semibold text-[#172B4D] bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+                        placeholder="配置名称"
+                      />
+                      {selectedProfile.isActive && (
+                        <span className="rounded bg-[#36B37E] px-2 py-0.5 text-[10px] font-bold text-white">
+                          ACTIVE
+                        </span>
+                      )}
+                    </div>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // 根据 provider 打开文档链接
+                        const docs: Record<AIProvider, string> = {
+                          openai: 'https://platform.openai.com/docs',
+                          deepseek: 'https://platform.deepseek.com/docs',
+                          moonshot: 'https://platform.moonshot.cn/docs',
+                          qwen: 'https://help.aliyun.com/document_detail/611472.html',
+                          custom: '#',
+                        };
+                        window.open(docs[formData.provider as AIProvider] || '#', '_blank');
+                      }}
+                      className="text-[#5E6C84] hover:text-[#0052CC]"
+                      title="查看文档"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </div>
+
+                  {/* API Key */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-[#5E6C84]">
+                      API Key
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showApiKey ? 'text' : 'password'}
+                        value={formData.apiKey || ''}
+                        onChange={(e) => {
+                          setFormData(prev => ({ ...prev, apiKey: e.target.value }));
+                          setConnectionStatus(null);
+                        }}
+                        placeholder="sk-..."
+                        className={inputClass}
+                      />
+                      <button
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[#5E6C84] hover:text-[#172B4D]"
+                      >
+                        {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Base URL */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-[#5E6C84]">
+                      Base URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.baseUrl || ''}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, baseUrl: e.target.value }));
+                        setConnectionStatus(null);
+                      }}
+                      placeholder="https://api.example.com/v1"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  {/* Model */}
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-[#5E6C84]">
+                      Model
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.model || ''}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, model: e.target.value }));
+                        setConnectionStatus(null);
+                      }}
+                      placeholder="gpt-4o, deepseek-chat, ..."
+                      className={inputClass}
+                    />
+                  </div>
+
+                  {/* 测试连接状态 */}
+                  {connectionStatus && (
+                    <div className={`flex items-center gap-2 text-sm ${
+                      connectionStatus.success ? 'text-[#006644]' : 'text-[#DE350B]'
+                    }`}>
+                      {connectionStatus.success ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                      {connectionStatus.message}
+                    </div>
+                  )}
+
+                  {/* 操作按钮 */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={handleTestConnection}
+                      disabled={isTestingConnection}
+                      className="flex items-center gap-1.5 rounded border border-[#DFE1E6] bg-white px-4 py-2 text-sm font-medium text-[#172B4D] hover:bg-[#F4F5F7] disabled:opacity-50"
+                    >
+                      <TestTube className={`h-4 w-4 ${isTestingConnection ? 'animate-spin' : ''}`} />
+                      {isTestingConnection ? '测试中...' : '测试连接'}
+                    </button>
+                    <button
+                      onClick={handleUpdateProfile}
+                      className="rounded bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6]"
+                    >
+                      保存配置
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ===== Jira 配置卡片 ===== */}
         <div className="rounded-lg border border-[#DFE1E6] bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded bg-[#0052CC]/10 text-[#0052CC]">
@@ -315,14 +792,14 @@ export function SettingsPanel() {
 
             <div className="flex gap-3 pt-2">
               <button
-                onClick={handleTestConnection}
+                onClick={handleTestJiraConnection}
                 disabled={isTesting}
                 className="rounded border border-[#DFE1E6] bg-white px-4 py-2 text-sm font-medium text-[#172B4D] hover:bg-[#F4F5F7] disabled:opacity-50"
               >
                 {isTesting ? '测试中...' : '测试连接'}
               </button>
               <button
-                onClick={handleSave}
+                onClick={handleSaveJiraConfig}
                 disabled={isSaving}
                 className="rounded bg-[#0052CC] px-4 py-2 text-sm font-medium text-white hover:bg-[#0747A6] disabled:opacity-50"
               >
@@ -332,7 +809,7 @@ export function SettingsPanel() {
           </div>
         </div>
 
-        {/* Obsidian 集成配置 */}
+        {/* ===== Obsidian 集成配置 ===== */}
         <div className="rounded-lg border border-[#DFE1E6] bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded bg-[#E3FCEF] text-[#006644]">
@@ -371,7 +848,7 @@ export function SettingsPanel() {
           </div>
         </div>
 
-        {/* 头像上传区域 */}
+        {/* ===== 头像上传区域 ===== */}
         <div className="rounded-lg border border-[#DFE1E6] bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded bg-[#DEEBFF] text-[#0747A6]">
@@ -467,12 +944,12 @@ export function SettingsPanel() {
           </div>
         </div>
 
-        {/* 应用信息 */}
+        {/* ===== 应用信息 ===== */}
         <div className="rounded-lg border border-[#DFE1E6] bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold text-[#172B4D]">关于</h3>
           <div className="space-y-2 text-sm text-[#5E6C84]">
-            <p><span className="font-medium">版本:</span> 1.0.0</p>
-            <p><span className="font-medium">构建时间:</span> 2026-02-05</p>
+            <p><span className="font-medium">版本:</span> 1.1.0</p>
+            <p><span className="font-medium">构建时间:</span> 2026-02-06</p>
           </div>
         </div>
       </div>

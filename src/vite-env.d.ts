@@ -181,6 +181,59 @@ declare interface ObsidianAPI {
   getVaultPath: () => Promise<{ success: true; data: string } | { success: false; error: string }>;
 }
 
+// AI Provider 类型
+declare type AIProvider = 'openai' | 'deepseek' | 'moonshot' | 'qwen' | 'custom';
+
+// AI Profile 类型
+declare interface AIProfile {
+  id: string;
+  name: string;
+  provider: AIProvider;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  isActive: boolean;
+}
+
+// Provider 模板类型
+declare interface ProviderTemplate {
+  name: string;
+  baseUrl: string;
+  defaultModel: string;
+}
+
+// AI API 类型
+declare interface AIAPI {
+  getProfiles: () => Promise<{ success: true; data: AIProfile[] } | { success: false; error: string }>;
+  saveProfiles: (profiles: AIProfile[]) => Promise<{ success: boolean; error?: string }>;
+  addProfile: (profile: Omit<AIProfile, 'id'>) => Promise<{ 
+    success: true; 
+    profile: AIProfile;
+  } | { 
+    success: false; 
+    error: string;
+  }>;
+  updateProfile: (profileId: string, updates: Partial<AIProfile>) => Promise<{ success: boolean; error?: string }>;
+  deleteProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
+  setActiveProfile: (profileId: string) => Promise<{ success: boolean; error?: string }>;
+  getActiveProfile: () => Promise<{ success: true; data: AIProfile | null } | { success: false; error: string }>;
+  testConnection: (config: { baseUrl: string; apiKey: string; model: string }) => Promise<{
+    success: true;
+    latency: string;
+  } | {
+    success: false;
+    error: string;
+  }>;
+  generateReport: (prompt: string) => Promise<{
+    success: true;
+    content: string;
+  } | {
+    success: false;
+    error: string;
+  }>;
+  getProviderTemplates: () => Promise<{ success: true; data: Record<AIProvider, ProviderTemplate> } | { success: false; error: string }>;
+}
+
 // Electron API 类型声明
 declare global {
   interface Window {
@@ -189,6 +242,7 @@ declare global {
       jira: JiraAPI;
       board: BoardAPI;
       obsidian: ObsidianAPI;
+      ai: AIAPI;
     };
   }
 }
