@@ -183,17 +183,8 @@ export function registerJiraIPCs(): void {
     try {
       const result = syncService.updateTaskColumn(taskKey, columnId);
       
-      if (result.success) {
-        // 记录工作日志（使用新接口）
-        // 注意：实际的工作日志自动记录在 Board.tsx 中根据条件触发
-        // 这里记录的是操作审计日志
-        workLogsDB.logAutoJira({
-          task_key: taskKey,
-          summary: `移动任务到: ${columnId}`,
-          log_date: new Date().toISOString().split('T')[0],
-        });
-      }
-      
+      // 注意：工作日志的自动记录在 Board.tsx 中根据条件触发（Story→DONE, Bug→VALIDATING）
+      // 这里不重复记录，避免格式不一致和重复记录
       return result;
     } catch (error) {
       console.error('[IPC] Update task column error:', error);

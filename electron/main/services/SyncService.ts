@@ -819,12 +819,7 @@ export class SyncService {
     settingsDB.set('jira_lastSync', String(Date.now()));
     settingsDB.set('jira_syncMethod', 'agile');
 
-    // 记录同步审计日志（使用新接口）
-    workLogsDB.logManual({
-      summary: `[系统] Agile 同步: Board ${boardResult.boardId}, Sprint ${sprintIssues.length} 任务, Backlog ${backlogIssues.length} 任务`,
-      log_date: new Date().toISOString().split('T')[0],
-    });
-
+    // 注意：不记录系统同步日志到工作日志表，工作日志只记录用户完成任务
     console.log('[SyncService] 4-Step Agile Sync completed successfully');
 
     return {
@@ -873,12 +868,7 @@ export class SyncService {
       settingsDB.set('jira_lastSync', String(Date.now()));
       settingsDB.set('jira_syncMethod', 'jql');
 
-      // 记录同步审计日志（使用新接口）
-      workLogsDB.logManual({
-        summary: `[系统] JQL 同步: ${tasks.length} 任务`,
-        log_date: new Date().toISOString().split('T')[0],
-      });
-
+      // 注意：不记录系统同步日志到工作日志表，工作日志只记录用户完成任务
       return { success: true, upserted: tasks.length };
     } catch (error) {
       return { success: false, error: String(error) };
