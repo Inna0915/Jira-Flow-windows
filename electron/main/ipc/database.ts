@@ -90,11 +90,28 @@ export function registerDatabaseIPCs(): void {
     }
   });
 
-  // 工作日志相关
+  // 工作日志相关 (向后兼容，实际逻辑已移至 ipc/logs.ts)
   ipcMain.handle('db:workLogs:create', (_, log) => {
+    // 兼容旧接口：转换为新的 logManual 或 logAutoJira 调用
+    console.warn('[IPC] db:workLogs:create is deprecated, use db:log-auto-jira or db:log-manual instead');
     try {
-      const id = workLogsDB.create(log);
-      return { success: true, data: { id } };
+      // 根据 log 内容判断是 Jira 还是 Manual
+      if (log.task_key && !log.task_key.startsWith('manual-')) {
+        // Jira 任务
+        const result = workLogsDB.logAutoJira({
+          task_key: log.task_key,
+          summary: log.comment || log.task_key,
+          log_date: log.log_date,
+        });
+        return { success: result.success, data: { id: 0 } };
+      } else {
+        // Manual 任务
+        const result = workLogsDB.logManual({
+          summary: log.comment || 'Manual entry',
+          log_date: log.log_date,
+        });
+        return { success: result.success, data: { id: 0 } };
+      }
     } catch (error) {
       console.error('[IPC] workLogs:create error:', error);
       return { success: false, error: String(error) };
@@ -112,7 +129,10 @@ export function registerDatabaseIPCs(): void {
 
   ipcMain.handle('db:workLogs:getByTaskKey', (_, taskKey: string) => {
     try {
-      return { success: true, data: workLogsDB.getByTaskKey(taskKey) };
+      // 使用 query 方法作为兼容方案
+      const db = getDatabase();
+      const logs = db.prepare('SELECT * FROM t_work_logs WHERE task_key = ? ORDER BY created_at DESC').all(taskKey);
+      return { success: true, data: logs };
     } catch (error) {
       console.error('[IPC] workLogs:getByTaskKey error:', error);
       return { success: false, error: String(error) };
