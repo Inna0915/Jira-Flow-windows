@@ -184,12 +184,13 @@ export function registerJiraIPCs(): void {
       const result = syncService.updateTaskColumn(taskKey, columnId);
       
       if (result.success) {
-        // 记录工作日志
-        workLogsDB.create({
+        // 记录工作日志（使用新接口）
+        // 注意：实际的工作日志自动记录在 Board.tsx 中根据条件触发
+        // 这里记录的是操作审计日志
+        workLogsDB.logAutoJira({
           task_key: taskKey,
-          action: 'MOVE_COLUMN',
+          summary: `移动任务到: ${columnId}`,
           log_date: new Date().toISOString().split('T')[0],
-          comment: `移动到列: ${columnId}`,
         });
       }
       
@@ -259,12 +260,11 @@ export function registerJiraIPCs(): void {
       const result = await client.transitionIssue(issueKey, transitionId);
       
       if (result.success) {
-        // 记录工作日志
-        workLogsDB.create({
+        // 记录工作日志（使用新接口）
+        workLogsDB.logAutoJira({
           task_key: issueKey,
-          action: 'TRANSITION',
+          summary: `状态转换: ${transitionId}`,
           log_date: new Date().toISOString().split('T')[0],
-          comment: `状态转换: ${transitionId}`,
         });
       }
       

@@ -819,12 +819,10 @@ export class SyncService {
     settingsDB.set('jira_lastSync', String(Date.now()));
     settingsDB.set('jira_syncMethod', 'agile');
 
-    // 记录工作日志
-    workLogsDB.create({
-      task_key: 'SYNC',
-      action: 'AGILE_SYNC',
+    // 记录同步审计日志（使用新接口）
+    workLogsDB.logManual({
+      summary: `[系统] Agile 同步: Board ${boardResult.boardId}, Sprint ${sprintIssues.length} 任务, Backlog ${backlogIssues.length} 任务`,
       log_date: new Date().toISOString().split('T')[0],
-      comment: `Agile 同步: Board ${boardResult.boardId}, Sprint ${sprintIssues.length} 任务, Backlog ${backlogIssues.length} 任务`,
     });
 
     console.log('[SyncService] 4-Step Agile Sync completed successfully');
@@ -875,11 +873,10 @@ export class SyncService {
       settingsDB.set('jira_lastSync', String(Date.now()));
       settingsDB.set('jira_syncMethod', 'jql');
 
-      workLogsDB.create({
-        task_key: 'SYNC',
-        action: 'JQL_SYNC',
+      // 记录同步审计日志（使用新接口）
+      workLogsDB.logManual({
+        summary: `[系统] JQL 同步: ${tasks.length} 任务`,
         log_date: new Date().toISOString().split('T')[0],
-        comment: `JQL 同步: ${tasks.length} 任务`,
       });
 
       return { success: true, upserted: tasks.length };
