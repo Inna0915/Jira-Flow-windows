@@ -84,6 +84,11 @@ function initializeTables(): void {
   if (workLogsNeedsMigration && columnExists('t_work_logs', 'action')) {
     console.log('[Database] Migrating t_work_logs to v2.0...');
     // 旧表存在且需要迁移：重建表
+    // 先清理可能存在的旧临时表
+    try {
+      db.exec('DROP TABLE IF EXISTS t_work_logs_new');
+    } catch { /* ignore */ }
+    
     db.exec(`
       -- 1. 创建临时表（新结构）
       CREATE TABLE t_work_logs_new (
