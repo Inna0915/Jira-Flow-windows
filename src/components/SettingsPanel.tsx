@@ -79,11 +79,11 @@ export function SettingsPanel() {
       if (result.success) {
         toast.success('Obsidian Vault 路径已保存');
       } else {
-        toast.error('保存失败');
+        toast.error(`保存失败: ${result.error || '未知错误'}`);
       }
     } catch (error) {
       console.error('Failed to save Obsidian config:', error);
-      toast.error('保存失败');
+      toast.error(`保存失败: ${error}`);
     }
   };
 

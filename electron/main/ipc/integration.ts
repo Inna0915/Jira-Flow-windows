@@ -64,7 +64,9 @@ export function registerIntegrationIPCs(): void {
    */
   ipcMain.handle('obsidian:set-vault-path', (_, vaultPath: string) => {
     try {
-      settingsDB.set('obsidian_vault_path', vaultPath);
+      // 如果路径为空，也允许保存（表示禁用 Obsidian 同步）
+      settingsDB.set('obsidian_vault_path', vaultPath || '');
+      console.log('[IPC] Obsidian vault path saved:', vaultPath || '(empty)');
       return { success: true };
     } catch (error) {
       console.error('[IPC] obsidian:set-vault-path error:', error);
