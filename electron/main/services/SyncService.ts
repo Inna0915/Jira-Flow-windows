@@ -80,14 +80,14 @@ interface AgileIssue {
 }
 
 /**
- * 状态名称标准化 - 基于关键词的模糊匹配
- * 将各种变体统一为标准列 ID
+ * 状态名称标准化 - 用于将 Jira 状态/动作映射到看板列 ID
  */
 export function normalizeStatus(rawStatus: string): string {
-  if (!rawStatus) return 'TODO';
+  if (!rawStatus) return 'TO DO';
   const status = rawStatus.toLowerCase().trim();
 
-  // 1. IN PROGRESS (Running, Building, Processing)
+  // 1. EXECUTION (Running, Building, Processing, Start)
+  // Added '开始' (Start) to catch transitions like "开始任务"
   if (
     status.includes('progress') || 
     status.includes('building') || 
@@ -96,12 +96,14 @@ export function normalizeStatus(rawStatus: string): string {
     status.includes('执行') || 
     status.includes('处理中') || 
     status.includes('构建中') ||
-    status.includes('进行中')
+    status.includes('进行中') ||
+    status.includes('开始') ||  // Fix: Catch "开始任务"
+    status.includes('start')
   ) {
-    return 'INPROGRESS';
+    return 'EXECUTION'; // Fix: Match Board Column ID
   }
 
-  // 2. EXECUTED (Build Done, Completed execution)
+  // 2. EXECUTED (Build Done)
   if (
     (status.includes('build') && status.includes('done')) || 
     status.includes('executed') || 
@@ -118,9 +120,10 @@ export function normalizeStatus(rawStatus: string): string {
     status.includes('integrating') || 
     status.includes('审核') || 
     status.includes('测试中') ||
-    status.includes('代码审查')
+    status.includes('代码审查') ||
+    status.includes('集成')
   ) {
-    return 'REVIEW';
+    return 'TESTING & REVIEW'; // Fix: Match Board Column ID
   }
 
   // 4. TEST DONE
@@ -129,7 +132,7 @@ export function normalizeStatus(rawStatus: string): string {
     status.includes('测试完成') ||
     status.includes('测试通过')
   ) {
-    return 'TESTDONE';
+    return 'TEST DONE'; // Fix: Match Board Column ID
   }
 
   // 5. VALIDATING
@@ -142,11 +145,17 @@ export function normalizeStatus(rawStatus: string): string {
   }
 
   // 6. DONE / RESOLVED / CLOSED
+  // Handle specific end states to match Board Columns
   if (status.includes('resolved') || status.includes('已解决')) return 'RESOLVED';
   if (status.includes('closed') || status.includes('关闭')) return 'CLOSED';
   if (status.includes('done') || status.includes('完成') || status.includes('已完成')) return 'DONE';
 
-  // 7. TO DO / BACKLOG / OPEN
+  // 7. PRE-WORK
+  if (status.includes('funnel') || status.includes('漏斗')) return 'FUNNEL';
+  if (status.includes('defin') || status.includes('定义')) return 'DEFINING';
+  if (status.includes('ready') || status.includes('就绪')) return 'READY';
+
+  // 8. TO DO (Default)
   if (
     status.includes('backlog') || 
     status.includes('todo') || 
@@ -155,19 +164,14 @@ export function normalizeStatus(rawStatus: string): string {
     status.includes('new') ||
     status.includes('待办') ||
     status.includes('新建') ||
-    status.includes('未开始')
+    status.includes('未开始') ||
+    status.includes('打开')
   ) {
-    return 'TODO';
+    return 'TO DO';
   }
 
-  // 8. PRE-WORK (Optional)
-  if (status.includes('funnel') || status.includes('漏斗')) return 'FUNNEL';
-  if (status.includes('defin') || status.includes('定义')) return 'DEFINING';
-  if (status.includes('ready') || status.includes('就绪')) return 'READY';
-
-  // Default Catch-all
-  console.log(`[normalizeStatus] Unmatched status: "${rawStatus}", defaulting to TODO`);
-  return 'TODO';
+  console.log(`[normalizeStatus] Unmatched status: "${rawStatus}", defaulting to TO DO`);
+  return 'TO DO';
 }
 
 /**
@@ -725,6 +729,7 @@ export class SyncService {
     '待办': 'TO DO',
     '构建中': 'EXECUTION',
     '处理中': 'EXECUTION',
+    '开始任务': 'EXECUTION',
     '构建完成': 'EXECUTED',
     '审核中': 'TESTING & REVIEW',
     '测试中': 'TESTING & REVIEW',
