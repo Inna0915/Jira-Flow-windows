@@ -7,6 +7,10 @@ import { TaskDrawer } from './TaskDrawer';
 import { useTasks } from '../hooks/useTasks';
 import { useBoardStore, BOARD_COLUMNS, SWIMLANES } from '../stores/boardStore';
 
+// 统一列宽常量 - 确保表头和泳道列完全对齐
+export const COLUMN_WIDTH = 280; // px
+export const COLUMN_WIDTH_CLASS = 'w-[280px] min-w-[280px] max-w-[280px]';
+
 export function Board() {
   const {
     selectedSprintId,
@@ -70,11 +74,11 @@ export function Board() {
       toast.success(`任务已移动到 ${targetColumn}`);
 
       // ===== 工作日志自动记录 (Phase 3) =====
-      // Story: 移动到 DONE 时记录
+      // Story: 移动到 EXECUTED 时记录
       // Bug: 移动到 VALIDATING 时记录
       const isStory = task.issuetype?.toLowerCase() === 'story';
       const isBug = task.issuetype?.toLowerCase() === 'bug';
-      const shouldLog = (isStory && targetColumn === 'DONE') || 
+      const shouldLog = (isStory && targetColumn === 'EXECUTED') || 
                         (isBug && targetColumn === 'VALIDATING');
       
       if (shouldLog) {
@@ -213,24 +217,6 @@ export function Board() {
         </div>
       </div>
 
-      {/* 列标题 - Agile Hive 风格 */}
-      {/* 关键修复：添加 min-w-[280px] 防止列被压扁，启用水平滚动 */}
-      <div 
-        className="grid border-b-2 border-[#DFE1E6] bg-[#F4F5F7] overflow-x-auto" 
-        style={{ gridTemplateColumns: `repeat(${BOARD_COLUMNS.length}, minmax(280px, 1fr))` }}
-      >
-        {BOARD_COLUMNS.map((column) => (
-          <div 
-            key={column.id}
-            className="min-w-[280px] border-r border-[#DFE1E6] px-2 py-3 text-center last:border-r-0"
-          >
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B778C]">
-              {column.name}
-            </span>
-          </div>
-        ))}
-      </div>
-
       {/* 错误提示 */}
       {error && (
         <div className="mx-4 mt-2 flex items-center gap-2 rounded border border-[#FF5630]/20 bg-[#FFEBE6] px-3 py-2 text-xs text-[#FF5630]">
@@ -239,42 +225,65 @@ export function Board() {
         </div>
       )}
 
-      {/* 看板主体 */}
-      <div className={`flex-1 overflow-auto p-4 ${isDragging ? 'cursor-grabbing' : ''}`}>
-        <DragDropContext onDragEnd={onDragEnd}>
-          {SWIMLANES.map((swimlane) => (
-            <Swimlane
-              key={swimlane.id}
-              id={swimlane.id}
-              title={swimlane.title}
-              isCollapsed={collapsedSwimlanes.has(swimlane.id)}
-              onToggle={() => toggleSwimlane(swimlane.id)}
-              getTasksForColumn={(columnId) => getTasksBySwimlaneAndColumn(swimlane.id, columnId)}
-              onTaskClick={handleTaskClick}
-            />
-          ))}
-        </DragDropContext>
-
-        {/* 空状态 */}
-        {tasks.length === 0 && !isLoading && (
-          <div className="flex h-64 flex-col items-center justify-center text-[#5E6C84]">
-            <div className="mb-4 rounded-full bg-[#DFE1E6] p-4">
-              <RefreshCw className="h-8 w-8" />
+      {/* ===== 看板主体 - 统一滚动容器 ===== */}
+      <div className={`flex-1 overflow-auto bg-[#F4F5F7] ${isDragging ? 'cursor-grabbing' : ''}`}>
+        {/* Canvas 层 - min-w-max 确保宽度等于所有列宽之和 */}
+        <div className="flex flex-col min-w-max h-full p-4">
+          
+          <DragDropContext onDragEnd={onDragEnd}>
+            {/* 1. 列标题 (Sticky Top) */}
+            <div className="flex sticky top-0 z-20 bg-[#F4F5F7] border-b-2 border-[#DFE1E6]">
+              {BOARD_COLUMNS.map((column, index) => (
+                <div 
+                  key={column.id}
+                  className={`${COLUMN_WIDTH_CLASS} px-2 py-3 text-center border-r border-[#DFE1E6] last:border-r-0 ${
+                    index === 0 ? 'sticky left-0 z-30 bg-[#F4F5F7]' : ''
+                  }`}
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B778C]">
+                    {column.name}
+                  </span>
+                </div>
+              ))}
             </div>
-            <p className="mb-2 text-lg font-medium text-[#172B4D]">暂无任务</p>
-            <p className="text-sm">点击"全量同步"从 Jira 获取任务</p>
-          </div>
-        )}
 
-        {/* 加载状态 */}
-        {isLoading && tasks.length === 0 && (
-          <div className="flex h-64 items-center justify-center">
-            <div className="flex items-center gap-3 text-[#5E6C84]">
-              <RefreshCw className="h-5 w-5 animate-spin" />
-              <span>正在加载任务...</span>
+            {/* 2. 泳道容器 */}
+            <div className="flex flex-col">
+              {SWIMLANES.map((swimlane) => (
+                <Swimlane
+                  key={swimlane.id}
+                  id={swimlane.id}
+                  title={swimlane.title}
+                  isCollapsed={collapsedSwimlanes.has(swimlane.id)}
+                  onToggle={() => toggleSwimlane(swimlane.id)}
+                  getTasksForColumn={(columnId) => getTasksBySwimlaneAndColumn(swimlane.id, columnId)}
+                  onTaskClick={handleTaskClick}
+                />
+              ))}
             </div>
-          </div>
-        )}
+          </DragDropContext>
+
+          {/* 空状态 */}
+          {tasks.length === 0 && !isLoading && (
+            <div className="flex h-64 flex-col items-center justify-center text-[#5E6C84]">
+              <div className="mb-4 rounded-full bg-[#DFE1E6] p-4">
+                <RefreshCw className="h-8 w-8" />
+              </div>
+              <p className="mb-2 text-lg font-medium text-[#172B4D]">暂无任务</p>
+              <p className="text-sm">点击"全量同步"从 Jira 获取任务</p>
+            </div>
+          )}
+
+          {/* 加载状态 */}
+          {isLoading && tasks.length === 0 && (
+            <div className="flex h-64 items-center justify-center">
+              <div className="flex items-center gap-3 text-[#5E6C84]">
+                <RefreshCw className="h-5 w-5 animate-spin" />
+                <span>正在加载任务...</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 任务详情抽屉 */}

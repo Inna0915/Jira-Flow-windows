@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { TaskCard } from './TaskCard';
 import type { BoardTask, SwimlaneType } from '../stores/boardStore';
 import { BOARD_COLUMNS } from '../stores/boardStore';
+import { COLUMN_WIDTH_CLASS } from './Board';
 
 interface SwimlaneProps {
   id: SwimlaneType;
@@ -84,13 +85,9 @@ export function Swimlane({
         </span>
       </button>
 
-      {/* 泳道内容 - 列网格 */}
-      {/* 关键修复：添加 min-w-[280px] 和 overflow-x-auto 防止列被压扁 */}
+      {/* 泳道内容 - 使用 Flex 布局替代 Grid，确保与表头对齐 */}
       {!isCollapsed && (
-        <div 
-          className="grid border-t border-[#DFE1E6] overflow-x-auto" 
-          style={{ gridTemplateColumns: `repeat(${BOARD_COLUMNS.length}, minmax(280px, 1fr))` }}
-        >
+        <div className="flex border-t border-[#DFE1E6]">
           {BOARD_COLUMNS.map((column) => {
             const tasks = getTasksForColumn(column.id);
             const droppableId = `${id}:${column.id}`;
@@ -102,7 +99,7 @@ export function Swimlane({
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className={`
-                      min-w-[280px] min-h-[200px] border-r border-[#DFE1E6] p-2
+                      ${COLUMN_WIDTH_CLASS} min-h-[200px] border-r border-[#DFE1E6] p-2
                       ${snapshot.isDraggingOver ? 'bg-[#DEEBFF]/50' : 'bg-white'}
                       ${column.id === 'CLOSED' ? 'border-r-0' : ''}
                     `}
