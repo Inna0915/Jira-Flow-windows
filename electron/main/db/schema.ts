@@ -78,18 +78,60 @@ function initializeTables(): void {
 
   // 工作日志表 - 支持 Jira 自动记录和手动记录
   // v2.0: 重构表结构，支持混合内容类型
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS t_work_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_key TEXT NOT NULL,       -- Jira Key (PROJ-123) OR UUID (manual-xxx)
-      source TEXT NOT NULL,         -- 'JIRA' or 'MANUAL'
-      summary TEXT,                 -- 任务标题或自定义文本
-      log_date TEXT NOT NULL,       -- YYYY-MM-DD
-      created_at INTEGER,
-      -- 约束：同一天同一任务只能有一条记录（幂等性）
-      UNIQUE(task_key, log_date)
-    )
-  `);
+  // 检查是否需要迁移（旧表结构兼容）
+  const workLogsNeedsMigration = db.prepare("SELECT name FROM pragma_table_info('t_work_logs') WHERE name = 'source'").get() === undefined;
+  
+  if (workLogsNeedsMigration && columnExists('t_work_logs', 'action')) {
+    console.log('[Database] Migrating t_work_logs to v2.0...');
+    // 旧表存在且需要迁移：重建表
+    db.exec(`
+      -- 1. 创建临时表（新结构）
+      CREATE TABLE t_work_logs_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_key TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'JIRA',
+        summary TEXT,
+        log_date TEXT NOT NULL,
+        created_at INTEGER,
+        UNIQUE(task_key, log_date)
+      );
+      
+      -- 2. 迁移旧数据
+      INSERT INTO t_work_logs_new (id, task_key, source, summary, log_date, created_at)
+      SELECT 
+        id,
+        COALESCE(task_key, 'UNKNOWN'),
+        CASE 
+          WHEN task_key LIKE 'manual-%' THEN 'MANUAL'
+          ELSE 'JIRA'
+        END,
+        COALESCE(comment, action, 'Legacy entry'),
+        log_date,
+        created_at
+      FROM t_work_logs;
+      
+      -- 3. 删除旧表
+      DROP TABLE t_work_logs;
+      
+      -- 4. 重命名新表
+      ALTER TABLE t_work_logs_new RENAME TO t_work_logs;
+    `);
+    console.log('[Database] t_work_logs migration completed');
+  } else {
+    // 创建新表（如果不存在）
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS t_work_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_key TEXT NOT NULL,       -- Jira Key (PROJ-123) OR UUID (manual-xxx)
+        source TEXT NOT NULL,         -- 'JIRA' or 'MANUAL'
+        summary TEXT,                 -- 任务标题或自定义文本
+        log_date TEXT NOT NULL,       -- YYYY-MM-DD
+        created_at INTEGER,
+        -- 约束：同一天同一任务只能有一条记录（幂等性）
+        UNIQUE(task_key, log_date)
+      )
+    `);
+  }
 
   // 设置表 - 存储应用配置
   db.exec(`
