@@ -99,11 +99,30 @@ const boardAPI = {
   updateTaskColumn: (taskKey, columnId) => ipcRenderer.invoke('db:update-task-column', taskKey, columnId),
 };
 
+// Obsidian 集成 API
+const obsidianAPI = {
+  /**
+   * 同步任务到 Obsidian
+   */
+  syncTask: (task) => ipcRenderer.invoke('obsidian:sync-task', task),
+  
+  /**
+   * 设置 Vault 路径
+   */
+  setVaultPath: (path) => ipcRenderer.invoke('obsidian:set-vault-path', path),
+  
+  /**
+   * 获取 Vault 路径
+   */
+  getVaultPath: () => ipcRenderer.invoke('obsidian:get-vault-path'),
+};
+
 // 将 API 暴露给渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
   database: databaseAPI,
   jira: jiraAPI,
   board: boardAPI,
+  obsidian: obsidianAPI,
 });
 
 console.log('[Preload] Electron API exposed to window.electronAPI');

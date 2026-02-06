@@ -159,6 +159,28 @@ declare interface BoardAPI {
   updateTaskColumn: (taskKey: string, columnId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
+// Obsidian 集成 API 类型
+declare interface ObsidianAPI {
+  syncTask: (task: {
+    key: string;
+    summary: string;
+    status: string;
+    issuetype?: string | null;
+    description?: string;
+    dueDate?: string | null;
+  }) => Promise<{
+    success: true;
+    isNew: boolean;
+    filePath: string;
+  } | {
+    success: false;
+    message: string;
+    code?: string;
+  }>;
+  setVaultPath: (path: string) => Promise<{ success: boolean; error?: string }>;
+  getVaultPath: () => Promise<{ success: true; data: string } | { success: false; error: string }>;
+}
+
 // Electron API 类型声明
 declare global {
   interface Window {
@@ -166,6 +188,7 @@ declare global {
       database: DatabaseAPI;
       jira: JiraAPI;
       board: BoardAPI;
+      obsidian: ObsidianAPI;
     };
   }
 }

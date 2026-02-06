@@ -99,6 +99,33 @@ export function Board() {
         }).catch((err) => {
           console.error('[Board] Failed to auto-log task:', err);
         });
+
+        // ===== Obsidian 同步 (Phase 4) =====
+        // 同步任务到 Obsidian Vault
+        window.electronAPI.obsidian.syncTask({
+          key: task.key,
+          summary: task.summary,
+          status: task.status,
+          issuetype: task.issuetype,
+          description: task.description,
+          dueDate: task.dueDate,
+        }).then((result) => {
+          if (result.success) {
+            toast.success('Obsidian note updated', {
+              description: result.isNew ? 'Created new note' : 'Updated existing note',
+              duration: 2000,
+            });
+          } else {
+            // Vault 路径未配置时显示警告
+            toast.warning('Obsidian sync skipped', {
+              description: result.message || 'Vault path not set',
+              duration: 3000,
+            });
+          }
+        }).catch((err) => {
+          console.error('[Board] Failed to sync to Obsidian:', err);
+          toast.error('Obsidian sync failed');
+        });
       }
     } catch (error) {
       setTasks(previousTasks);
