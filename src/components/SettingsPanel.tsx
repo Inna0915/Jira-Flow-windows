@@ -391,12 +391,25 @@ export function SettingsPanel() {
   };
 
   const handleUpdateTemplate = (updates: Partial<PromptTemplate>) => {
-    if (!selectedTemplateId) return;
+    console.log('[Settings] handleUpdateTemplate called:', updates, 'selectedTemplateId:', selectedTemplateId);
+    if (!selectedTemplateId) {
+      console.warn('[Settings] No template selected, skipping update');
+      return;
+    }
     
-    setTemplateFormData(prev => ({ ...prev, ...updates }));
-    setPromptTemplates(prev => prev.map(t => 
-      t.id === selectedTemplateId ? { ...t, ...updates } as PromptTemplate : t
-    ));
+    setTemplateFormData(prev => {
+      const newData = { ...prev, ...updates };
+      console.log('[Settings] Updated templateFormData:', newData);
+      return newData;
+    });
+    
+    setPromptTemplates(prev => {
+      const updated = prev.map(t => 
+        t.id === selectedTemplateId ? { ...t, ...updates } as PromptTemplate : t
+      );
+      console.log('[Settings] Updated promptTemplates count:', updated.length);
+      return updated;
+    });
   };
 
   const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
@@ -430,8 +443,9 @@ export function SettingsPanel() {
   };
 
   const handleSelectTemplate = (template: PromptTemplate) => {
+    console.log('[Settings] Selecting template:', template.id, template.name);
     setSelectedTemplateId(template.id);
-    setTemplateFormData(template);
+    setTemplateFormData({ ...template });
   };
 
   const filteredProfiles = aiProfiles.filter(p => 
