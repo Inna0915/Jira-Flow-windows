@@ -76,15 +76,18 @@ function initializeTables(): void {
     db.exec('ALTER TABLE t_tasks ADD COLUMN sprint_state TEXT');
   }
 
-  // 工作日志表 - 记录用户操作和 AI 摘要
+  // 工作日志表 - 支持 Jira 自动记录和手动记录
+  // v2.0: 重构表结构，支持混合内容类型
   db.exec(`
     CREATE TABLE IF NOT EXISTS t_work_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_key TEXT,
-      action TEXT,
-      log_date TEXT,
-      comment TEXT,
-      created_at INTEGER
+      task_key TEXT NOT NULL,       -- Jira Key (PROJ-123) OR UUID (manual-xxx)
+      source TEXT NOT NULL,         -- 'JIRA' or 'MANUAL'
+      summary TEXT,                 -- 任务标题或自定义文本
+      log_date TEXT NOT NULL,       -- YYYY-MM-DD
+      created_at INTEGER,
+      -- 约束：同一天同一任务只能有一条记录（幂等性）
+      UNIQUE(task_key, log_date)
     )
   `);
 
@@ -195,30 +198,87 @@ export const tasksDB = {
   },
 };
 
-// 工作日志操作
+// 工作日志操作 (v2.0 - 支持 Jira 自动记录和手动记录)
 export const workLogsDB = {
-  create(log: {
+  /**
+   * 自动记录 Jira 任务（幂等性：同一天同一任务只记录一次）
+   * 使用 INSERT OR IGNORE 实现幂等性
+   */
+  logAutoJira(task: {
     task_key: string;
-    action: string;
+    summary: string;
     log_date: string;
-    comment?: string;
-  }): number {
-    const result = getDatabase().prepare(
-      `INSERT INTO t_work_logs (task_key, action, log_date, comment, created_at)
-       VALUES (?, ?, ?, ?, ?)`
-    ).run(log.task_key, log.action, log.log_date, log.comment ?? null, Date.now());
-    return Number(result.lastInsertRowid);
+  }): { success: boolean; isNew: boolean } {
+    try {
+      const result = getDatabase().prepare(
+        `INSERT OR IGNORE INTO t_work_logs (task_key, source, summary, log_date, created_at)
+         VALUES (?, 'JIRA', ?, ?, ?)`
+      ).run(task.task_key, task.summary, task.log_date, Date.now());
+      
+      const isNew = result.changes > 0;
+      console.log(`[WorkLogs] Auto-log Jira task ${task.task_key}: ${isNew ? 'NEW' : 'EXISTS'}`);
+      return { success: true, isNew };
+    } catch (error) {
+      console.error('[WorkLogs] Failed to auto-log Jira task:', error);
+      return { success: false, isNew: false };
+    }
   },
 
-  getByDateRange(startDate: string, endDate: string): Array<Record<string, unknown>> {
-    return getDatabase().prepare(
-      'SELECT * FROM t_work_logs WHERE log_date BETWEEN ? AND ? ORDER BY created_at DESC'
-    ).all(startDate, endDate);
+  /**
+   * 手动添加记录（非 Jira 任务）
+   */
+  logManual(content: {
+    summary: string;
+    log_date: string;
+  }): { success: boolean; task_key: string } {
+    try {
+      // 生成 UUID 作为 task_key
+      const task_key = `manual-${crypto.randomUUID()}`;
+      
+      const result = getDatabase().prepare(
+        `INSERT INTO t_work_logs (task_key, source, summary, log_date, created_at)
+         VALUES (?, 'MANUAL', ?, ?, ?)`
+      ).run(task_key, content.summary, content.log_date, Date.now());
+      
+      console.log(`[WorkLogs] Manual log created: ${task_key}`);
+      return { success: true, task_key };
+    } catch (error) {
+      console.error('[WorkLogs] Failed to create manual log:', error);
+      return { success: false, task_key: '' };
+    }
   },
 
-  getByTaskKey(taskKey: string): Array<Record<string, unknown>> {
+  /**
+   * 查询日期范围内的日志
+   */
+  getByDateRange(startDate: string, endDate: string): Array<{
+    id: number;
+    task_key: string;
+    source: 'JIRA' | 'MANUAL';
+    summary: string;
+    log_date: string;
+    created_at: number;
+  }> {
     return getDatabase().prepare(
-      'SELECT * FROM t_work_logs WHERE task_key = ? ORDER BY created_at DESC'
-    ).all(taskKey);
+      `SELECT id, task_key, source, summary, log_date, created_at 
+       FROM t_work_logs 
+       WHERE log_date BETWEEN ? AND ? 
+       ORDER BY log_date DESC, created_at DESC`
+    ).all(startDate, endDate) as any;
+  },
+
+  /**
+   * 删除日志
+   */
+  delete(id: number): boolean {
+    try {
+      const result = getDatabase().prepare(
+        'DELETE FROM t_work_logs WHERE id = ?'
+      ).run(id);
+      return result.changes > 0;
+    } catch (error) {
+      console.error('[WorkLogs] Failed to delete log:', error);
+      return false;
+    }
   },
 };

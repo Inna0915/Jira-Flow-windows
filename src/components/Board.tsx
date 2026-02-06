@@ -68,6 +68,33 @@ export function Board() {
       }
 
       toast.success(`任务已移动到 ${targetColumn}`);
+
+      // ===== 工作日志自动记录 (Phase 3) =====
+      // Story: 移动到 DONE 时记录
+      // Bug: 移动到 VALIDATING 时记录
+      const isStory = task.issuetype?.toLowerCase() === 'story';
+      const isBug = task.issuetype?.toLowerCase() === 'bug';
+      const shouldLog = (isStory && targetColumn === 'DONE') || 
+                        (isBug && targetColumn === 'VALIDATING');
+      
+      if (shouldLog) {
+        // 后台异步记录，不阻塞 UI
+        const today = new Date().toISOString().split('T')[0];
+        window.electronAPI.database.workLogs.logAutoJira({
+          task_key: task.key,
+          summary: task.summary,
+          log_date: today,
+        }).then((result) => {
+          if (result.isNew) {
+            toast.success('Task logged for report', {
+              description: `${task.key} 已记录到工作日志`,
+              duration: 2000,
+            });
+          }
+        }).catch((err) => {
+          console.error('[Board] Failed to auto-log task:', err);
+        });
+      }
     } catch (error) {
       setTasks(previousTasks);
       toast.error('移动失败，已恢复原状');

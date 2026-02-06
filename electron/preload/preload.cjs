@@ -22,12 +22,17 @@ const databaseAPI = {
     clearAll: () => ipcRenderer.invoke('db:tasks:clearAll'), // 清空所有任务（调试用）
   },
 
-  // 工作日志
+  // 工作日志 (v2.0 - 支持 Jira 自动记录和手动记录)
   workLogs: {
+    // 旧接口（向后兼容）
     create: (log) => ipcRenderer.invoke('db:workLogs:create', log),
     getByDateRange: (startDate, endDate) => 
       ipcRenderer.invoke('db:workLogs:getByDateRange', startDate, endDate),
     getByTaskKey: (taskKey) => ipcRenderer.invoke('db:workLogs:getByTaskKey', taskKey),
+    // 新接口
+    logAutoJira: (task) => ipcRenderer.invoke('db:log-auto-jira', task),
+    logManual: (content) => ipcRenderer.invoke('db:log-manual', content),
+    getLogs: (startDate, endDate) => ipcRenderer.invoke('db:get-logs', { startDate, endDate }),
   },
 
   // 原始 SQL 查询

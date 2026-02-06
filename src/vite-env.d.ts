@@ -28,6 +28,7 @@ declare interface DatabaseAPI {
     clearAll: () => Promise<{ success: boolean; data?: { deletedCount: number }; error?: string }>; // 清空所有任务（调试用）
   };
   workLogs: {
+    // 旧接口（向后兼容）
     create: (log: {
       task_key: string;
       action: string;
@@ -36,6 +37,28 @@ declare interface DatabaseAPI {
     }) => Promise<{ success: boolean; data?: { id: number }; error?: string }>;
     getByDateRange: (startDate: string, endDate: string) => Promise<{ success: boolean; data?: Array<Record<string, unknown>>; error?: string }>;
     getByTaskKey: (taskKey: string) => Promise<{ success: boolean; data?: Array<Record<string, unknown>>; error?: string }>;
+    // 新接口 (v2.0)
+    logAutoJira: (task: {
+      task_key: string;
+      summary: string;
+      log_date: string;
+    }) => Promise<{ success: boolean; isNew: boolean }>;
+    logManual: (content: {
+      summary: string;
+      log_date: string;
+    }) => Promise<{ success: boolean; task_key: string }>;
+    getLogs: (startDate: string, endDate: string) => Promise<{
+      success: boolean;
+      data?: Array<{
+        id: number;
+        task_key: string;
+        source: 'JIRA' | 'MANUAL';
+        summary: string;
+        log_date: string;
+        created_at: number;
+      }>;
+      error?: string;
+    }>;
   };
   query: (sql: string, params?: unknown[]) => Promise<{ success: boolean; data?: unknown; error?: string }>;
 }

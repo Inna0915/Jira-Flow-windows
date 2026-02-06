@@ -19,6 +19,11 @@
 - **头像系统**: 支持自定义头像上传（Base64 存储），自动首字母头像回退
 - **工作流验证**: Story 和 Bug 有不同的状态流转规则
 - **自定义字段支持**: 支持 Jira 自定义字段（如 customfield_10329 Planned End Date）
+- **工作日志系统 (Phase 3)**:
+  - **自动记录**: Story 拖拽到 DONE / Bug 拖拽到 VALIDATING 时自动记录
+  - **手动记录**: 支持添加非 Jira 任务到工作日志
+  - **幂等性**: 同一天同一任务只记录一次
+  - **报告视图**: 按日期分组展示，支持 Jira/Manual 标签区分
 
 ## 技术栈
 
@@ -50,14 +55,17 @@ CREATE TABLE t_tasks (
   raw_json TEXT
 );
 
--- 工作日志表
+-- 工作日志表 (v2.0 - Phase 3)
+-- 支持 Jira 自动记录和手动记录，幂等性约束
 CREATE TABLE t_work_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_key TEXT,
-  action TEXT,
-  log_date TEXT,
-  comment TEXT,
-  created_at INTEGER
+  task_key TEXT NOT NULL,       -- Jira Key (PROJ-123) OR UUID (manual-xxx)
+  source TEXT NOT NULL,         -- 'JIRA' or 'MANUAL'
+  summary TEXT,                 -- 任务标题或自定义文本
+  log_date TEXT NOT NULL,       -- YYYY-MM-DD
+  created_at INTEGER,
+  -- 约束：同一天同一任务只能有一条记录（幂等性）
+  UNIQUE(task_key, log_date)
 );
 
 -- 设置表
@@ -118,6 +126,13 @@ jira-flow/
 应用会自动将配置保存在本地 SQLite 中。
 
 ## 主要更新日志
+
+### v1.2.0 (WIP - Phase 3)
+- 新增工作日志系统：
+  - Story 拖拽到 DONE / Bug 拖拽到 VALIDATING 时自动记录
+  - 支持手动添加非 Jira 任务
+  - 新增工作日志报告页面
+  - 数据库表重构，支持幂等性约束
 
 ### v1.1.0
 - 新增 Agile API 4 步同步（Board → Sprint → Issues）

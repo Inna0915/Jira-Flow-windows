@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
 import { Board } from './components/Board';
 import { SettingsPanel } from './components/SettingsPanel';
+import { Reports } from './pages/Reports';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'board' | 'settings'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'settings'>('board');
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -50,7 +51,7 @@ function App() {
         <div className="electron-drag flex h-12 items-center border-b border-[#DFE1E6] bg-white px-4">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-[#0052CC]">Jira Flow</span>
-            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v1.0.0</span>
+            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v1.1.0</span>
           </div>
           <div className="ml-auto flex items-center gap-2 electron-no-drag">
             <button
@@ -62,6 +63,16 @@ function App() {
               }`}
             >
               看板
+            </button>
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === 'reports'
+                  ? 'bg-[#0052CC] text-white'
+                  : 'text-[#5E6C84] hover:bg-[#F4F5F7]'
+              }`}
+            >
+              工作日志
             </button>
             <button
               onClick={() => setActiveTab('settings')}
@@ -78,7 +89,9 @@ function App() {
 
         {/* 主内容区域 */}
         <main className="flex-1 overflow-hidden">
-          {activeTab === 'board' ? <Board /> : <SettingsPanel />}
+          {activeTab === 'board' && <Board />}
+          {activeTab === 'reports' && <Reports />}
+          {activeTab === 'settings' && <SettingsPanel />}
         </main>
       </div>
     </>
