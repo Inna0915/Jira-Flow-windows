@@ -222,6 +222,8 @@ declare interface PromptTemplate {
   name: string;
   description: string;
   content: string;
+  type?: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  isDefault?: boolean;
 }
 
 // Work Log 类型（用于报告生成）
@@ -293,16 +295,76 @@ declare interface SystemAPI {
   openJiraIssue: (issueKey: string) => Promise<{ success: boolean; error?: string }>;
 }
 
+// Report 类型（支持年/季/月/周）
+declare interface Report {
+  id: string;
+  type: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  start_date: string;
+  end_date: string;
+  content: string;
+  created_at: number;
+}
+
+// Report API 类型（支持层级报告）
+declare interface ReportAPI {
+  save: (report: Omit<Report, 'created_at'>) => Promise<{ success: true; id: string } | { success: false; error: string }>;
+  // 获取层级报告包（年/季/月）
+  getHierarchyBundle: ({ 
+    hierarchy, 
+    startDate, 
+    endDate 
+  }: { 
+    hierarchy: 'year' | 'quarter' | 'month' | 'week'; 
+    startDate: string; 
+    endDate: string;
+  }) => Promise<{
+    success: true;
+    data: {
+      main: Report | null;
+      children: Report[];
+      hierarchy: string;
+    };
+  } | {
+    success: false;
+    error: string;
+  }>;
+  // 兼容旧接口
+  getMonthlyBundle: ({ monthStart, monthEnd }: { monthStart: string; monthEnd: string }) => Promise<{
+    success: true;
+    data: { monthly: Report | null; weeklies: Report[] };
+  } | {
+    success: false;
+    error: string;
+  }>;
+  getByRange: ({ type, startDate, endDate }: { type: string; startDate: string; endDate: string }) => Promise<{
+    success: true;
+    data: Report | null;
+  } | {
+    success: false;
+    error: string;
+  }>;
+  // 获取指定类型和日期范围内的所有报告
+  getByTypeAndRange: ({ type, startDate, endDate }: { type: string; startDate: string; endDate: string }) => Promise<{
+    success: true;
+    data: Report[];
+  } | {
+    success: false;
+    error: string;
+  }>;
+}
+
 // Electron API 类型声明
 declare global {
   interface Window {
     electronAPI: {
       database: DatabaseAPI;
+      workLogs: DatabaseAPI['workLogs']; // 提升到顶层
       jira: JiraAPI;
       board: BoardAPI;
       obsidian: ObsidianAPI;
       system: SystemAPI;
       ai: AIAPI;
+      report: ReportAPI;
     };
   }
 }

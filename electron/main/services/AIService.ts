@@ -28,6 +28,8 @@ export interface PromptTemplate {
   name: string;
   description: string;
   content: string;
+  type?: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  isDefault?: boolean;
 }
 
 /**
@@ -69,6 +71,8 @@ export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
     id: 'tpl-weekly-1',
     name: '周报 (标准版)',
     description: '包含本周进展、下周计划和风险',
+    type: 'weekly',
+    isDefault: true,
     content: `你是一个专业的项目经理。请根据以下工作日志生成一份周报。
 
 格式要求：Markdown
@@ -79,17 +83,14 @@ export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
 3. **风险与阻碍**
 4. **下周规划**
 
-语气：专业、客观。
-
-工作日志数据：
-{{logs}}
-
-请生成周报：`,
+语气：专业、客观。`,
   },
   {
     id: 'tpl-monthly-1',
-    name: '月报 (高层汇报)',
-    description: '关注里程碑和整体进度',
+    name: '月报 (汇总版)',
+    description: '汇总月度工作，关注里程碑',
+    type: 'monthly',
+    isDefault: true,
     content: `你是一个高级技术负责人。请将以下工作日志汇总为一份月度汇报。
 
 重点关注：
@@ -99,12 +100,39 @@ export const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [
 
 忽略琐碎的修复细节，只保留高价值产出。
 
-语气：自信、精简。
+语气：自信、精简。`,
+  },
+  {
+    id: 'tpl-quarterly-1',
+    name: '季报 (战略版)',
+    description: '季度战略回顾与展望',
+    type: 'quarterly',
+    isDefault: true,
+    content: `你是一个技术总监。请根据以下工作日志生成季度战略报告。
 
-工作日志数据：
-{{logs}}
+重点关注：
+- 季度目标达成情况
+- 关键成果与影响
+- 团队能力提升
+- 下季度战略规划
 
-请生成月报：`,
+语气：战略高度、数据驱动。`,
+  },
+  {
+    id: 'tpl-yearly-1',
+    name: '年报 (总结版)',
+    description: '年度全面总结与规划',
+    type: 'yearly',
+    isDefault: true,
+    content: `你是一个CTO。请根据以下工作日志生成年度总结报告。
+
+重点关注：
+- 年度成就回顾
+- 技术演进路径
+- 团队成长总结
+- 来年愿景与目标
+
+语气：鼓舞人心、高瞻远瞩。`,
   },
 ];
 

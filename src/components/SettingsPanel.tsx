@@ -47,6 +47,9 @@ interface PromptTemplate {
   name: string;
   description: string;
   content: string;
+  type?: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  isDefault?: boolean;
+  isSystem?: boolean;
 }
 
 const PROVIDER_ICONS: Record<AIProvider, React.ReactNode> = {
@@ -416,8 +419,17 @@ export function SettingsPanel() {
     });
   };
 
+  // 系统预设模板ID列表（不允许删除，名称和描述不可修改）
+  const SYSTEM_TEMPLATE_IDS = ['tpl-weekly-1', 'tpl-monthly-1', 'tpl-quarterly-1', 'tpl-yearly-1'];
+  const isSystemTemplate = (templateId: string) => SYSTEM_TEMPLATE_IDS.includes(templateId);
+
   const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    // 不允许删除系统预设模板
+    if (isSystemTemplate(templateId)) {
+      toast.error('系统预设模板不允许删除');
+      return;
+    }
     
     const updated = promptTemplates.filter(t => t.id !== templateId);
     setPromptTemplates(updated);
@@ -949,13 +961,15 @@ export function SettingsPanel() {
                         </div>
                       </div>
                       
-                      {/* 删除按钮 */}
-                      <button
-                        onClick={(e) => handleDeleteTemplate(template.id, e)}
-                        className="p-1 rounded text-[#5E6C84] hover:bg-[#FFEBE6] hover:text-[#DE350B] opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      {/* 删除按钮 - 系统预设不显示 */}
+                      {!isSystemTemplate(template.id) && (
+                        <button
+                          onClick={(e) => handleDeleteTemplate(template.id, e)}
+                          className="p-1 rounded text-[#5E6C84] hover:bg-[#FFEBE6] hover:text-[#DE350B] opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -978,13 +992,17 @@ export function SettingsPanel() {
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-[#5E6C84]">
                       模板名称
+                      {selectedTemplate && isSystemTemplate(selectedTemplate.id) && (
+                        <span className="ml-2 text-[#0052CC]">(系统预设 - 名称不可修改)</span>
+                      )}
                     </label>
                     <input
                       type="text"
                       value={selectedTemplate?.name || ''}
                       onChange={(e) => handleUpdateTemplate({ name: e.target.value })}
                       placeholder="例如：周报（标准版）"
-                      className={inputClass}
+                      className={`${inputClass} ${selectedTemplate && isSystemTemplate(selectedTemplate.id) ? 'bg-[#F4F5F7] cursor-not-allowed' : ''}`}
+                      disabled={selectedTemplate ? isSystemTemplate(selectedTemplate.id) : false}
                     />
                   </div>
 
@@ -998,7 +1016,8 @@ export function SettingsPanel() {
                       value={selectedTemplate?.description || ''}
                       onChange={(e) => handleUpdateTemplate({ description: e.target.value })}
                       placeholder="简要描述此模板的用途"
-                      className={inputClass}
+                      className={`${inputClass} ${selectedTemplate && isSystemTemplate(selectedTemplate.id) ? 'bg-[#F4F5F7] cursor-not-allowed' : ''}`}
+                      disabled={selectedTemplate ? isSystemTemplate(selectedTemplate.id) : false}
                     />
                   </div>
 

@@ -7,12 +7,13 @@ import { TaskDrawer } from './TaskDrawer';
 import { useTasks } from '../hooks/useTasks';
 import { useBoardStore, BOARD_COLUMNS, SWIMLANES } from '../stores/boardStore';
 
-// 统一列宽常量 - 确保表头和泳道列完全对齐
-// w-[200px]: 固定宽度 (泳道宽度)
-// min-w-[200px]: 最小宽度，防止挤压
-// flex-shrink-0: 禁止 Flex 容器压缩此元素 (关键!)
-export const COLUMN_WIDTH = 200; // px
-export const COLUMN_WIDTH_CLASS = 'w-[200px] min-w-[200px] flex-shrink-0 border-r border-[#DFE1E6] last:border-r-0';
+// 统一列宽常量 - 弹性宽度策略
+// flex-1: 允许列填充可用空间
+// min-w-[280px]: 最小宽度，防止挤压，小于此宽度时触发滚动
+// max-w-[400px]: 最大宽度，防止过宽影响可读性
+// flex-shrink-0: 禁止 Flex 容器压缩此元素
+export const COLUMN_WIDTH = 280; // px (最小宽度参考值)
+export const COLUMN_WIDTH_CLASS = 'flex-1 min-w-[280px] max-w-[400px] flex-shrink-0 border-r border-[#DFE1E6] last:border-r-0';
 
 // 隐藏的列 - 已完成状态不显示
 const HIDDEN_COLUMNS = ['RESOLVED', 'DONE', 'CLOSED'];
@@ -315,10 +316,10 @@ export function Board() {
       )}
 
       {/* ===== 看板主体 - 统一滚动容器 ===== */}
-      <div className={`flex-1 overflow-x-auto overflow-y-hidden bg-[#F4F5F7] ${isDragging ? 'cursor-grabbing' : ''}`}>
+      <div className={`flex-1 overflow-auto bg-[#F4F5F7] ${isDragging ? 'cursor-grabbing' : ''}`}>
         
-        {/* Canvas 层 - min-w-full 确保宽度等于所有列宽之和 */}
-        <div className="flex flex-col min-w-full h-full">
+        {/* Canvas 层 - 使用 inline-flex 确保宽度由内容决定 */}
+        <div className="inline-flex flex-col">
           
           <DragDropContext 
             onDragStart={() => setIsDragging(true)}
@@ -339,8 +340,8 @@ export function Board() {
               ))}
             </div>
 
-            {/* 2. 泳道容器 - 允许垂直滚动 */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-full">
+            {/* 2. 泳道容器 - 无独立滚动，随外层统一滚动 */}
+            <div className="flex-1 min-w-full">
               {SWIMLANES.map((swimlane) => (
                 <Swimlane
                   key={swimlane.id}

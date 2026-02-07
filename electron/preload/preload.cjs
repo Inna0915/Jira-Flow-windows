@@ -160,14 +160,26 @@ const aiAPI = {
   getProviderTemplates: () => ipcRenderer.invoke('ai:get-provider-templates'),
 };
 
+// 报告 API（支持层级：年/季/月/周）
+const reportAPI = {
+  save: (report) => ipcRenderer.invoke('report:save', report),
+  getHierarchyBundle: ({ hierarchy, startDate, endDate }) => 
+    ipcRenderer.invoke('report:get-hierarchy-bundle', { hierarchy, startDate, endDate }),
+  getMonthlyBundle: ({ monthStart, monthEnd }) => ipcRenderer.invoke('report:get-monthly-bundle', { monthStart, monthEnd }),
+  getByRange: ({ type, startDate, endDate }) => ipcRenderer.invoke('report:get-by-range', { type, startDate, endDate }),
+  getByTypeAndRange: ({ type, startDate, endDate }) => ipcRenderer.invoke('report:get-by-type-and-range', { type, startDate, endDate }),
+};
+
 // 将 API 暴露给渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
   database: databaseAPI,
+  workLogs: databaseAPI.workLogs, // 提升到顶层方便访问
   jira: jiraAPI,
   board: boardAPI,
   obsidian: obsidianAPI,
   ai: aiAPI,
   system: systemAPI,
+  report: reportAPI,
 });
 
 console.log('[Preload] Electron API exposed to window.electronAPI');
