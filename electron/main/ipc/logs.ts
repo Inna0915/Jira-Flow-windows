@@ -27,6 +27,24 @@ export function registerWorkLogIPCs(): void {
   });
 
   /**
+   * 自动记录个人任务（幂等性）
+   * payload: { task_key: string, summary: string, log_date: string }
+   */
+  ipcMain.handle('db:log-local', (_, task: {
+    task_key: string;
+    summary: string;
+    log_date: string;
+  }) => {
+    try {
+      const result = workLogsDB.logLocal(task);
+      return { success: true, ...result };
+    } catch (error) {
+      console.error('[IPC] log-local error:', error);
+      return { success: false, isNew: false };
+    }
+  });
+
+  /**
    * 手动添加记录（非 Jira 任务）
    * payload: { summary: string, log_date: string }
    */
@@ -36,7 +54,7 @@ export function registerWorkLogIPCs(): void {
   }) => {
     try {
       const result = workLogsDB.logManual(content);
-      return result;
+      return { success: true, ...result };
     } catch (error) {
       console.error('[IPC] log-manual error:', error);
       return { success: false, task_key: '' };

@@ -1,4 +1,4 @@
-# Jira Flow v1.3.0
+# Jira Flow v1.4.0
 
 一个本地优先的 Windows 桌面应用，用于同步 Jira 任务、可视化看板管理、记录工作日志，并生成 AI 驱动的周报。
 
@@ -37,7 +37,7 @@
 ## 数据库结构
 
 ```sql
--- 任务表
+-- 任务表（支持 Jira 和本地个人任务）
 CREATE TABLE t_tasks (
   key TEXT PRIMARY KEY,
   summary TEXT,
@@ -52,15 +52,17 @@ CREATE TABLE t_tasks (
   priority TEXT,
   updated_at TEXT,
   synced_at INTEGER,
-  raw_json TEXT
+  raw_json TEXT,
+  source TEXT DEFAULT 'JIRA',  -- 'JIRA' 或 'LOCAL'
+  description TEXT             -- 任务描述
 );
 
 -- 工作日志表 (v2.0 - Phase 3)
--- 支持 Jira 自动记录和手动记录，幂等性约束
+-- 支持 Jira 自动记录、个人任务记录和手动记录，幂等性约束
 CREATE TABLE t_work_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   task_key TEXT NOT NULL,       -- Jira Key (PROJ-123) OR UUID (manual-xxx)
-  source TEXT NOT NULL,         -- 'JIRA' or 'MANUAL'
+  source TEXT NOT NULL,         -- 'JIRA', 'LOCAL' 或 'MANUAL'
   summary TEXT,                 -- 任务标题或自定义文本
   log_date TEXT NOT NULL,       -- YYYY-MM-DD
   created_at INTEGER,
@@ -72,6 +74,17 @@ CREATE TABLE t_work_logs (
 CREATE TABLE t_settings (
   s_key TEXT PRIMARY KEY,
   s_value TEXT
+);
+
+-- 生成的报告表（v1.3.0+）
+-- 支持周报/月报/季报/年报存储
+CREATE TABLE t_generated_reports (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL CHECK(type IN ('weekly', 'monthly', 'quarterly', 'yearly')),
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at INTEGER NOT NULL
 );
 ```
 
@@ -126,6 +139,25 @@ jira-flow/
 应用会自动将配置保存在本地 SQLite 中。
 
 ## 主要更新日志
+
+### v1.4.0 (2025-02-07)
+- **个人看板 (Personal Kanban)**:
+  - 新增独立的 Personal Board 视图，支持创建本地任务（非 Jira 任务）
+  - 个人任务支持自定义初始列（FUNNEL 到 VALIDATING 可选）
+  - 个人任务使用设置中保存的头像和用户名作为创建人
+  - 个人任务支持完整的 CRUD 操作（创建、编辑、删除、归档）
+  - 个人任务拖拽无工作流限制，可自由移动
+  - 个人任务移动到 EXECUTED 时自动记录工作日志（source=LOCAL）
+- **归档功能**:
+  - 新增任务归档功能，已完成的任务可归档隐藏
+  - 支持查看已归档任务列表，支持搜索和恢复
+- **泳道自动展开/收起**:
+  - Jira 看板和个人看板的泳道都支持根据任务数量自动展开/收起
+  - 任务数量为 0 时自动收起，大于 0 时自动展开
+- **数据库**:
+  - 新增 `source` 字段区分 JIRA/LOCAL 任务
+  - 新增 `description` 字段支持任务描述
+  - 工作日志表支持 LOCAL 类型记录
 
 ### v1.3.0 (2025-02-07)
 - **层级报告系统**:

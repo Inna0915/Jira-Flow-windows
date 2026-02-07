@@ -25,6 +25,8 @@ export interface BoardTask {
   // 调试字段（可选）
   assignee_name?: string; // 后端原始字段（调试用）
   assignee_avatar?: string; // 后端原始字段（调试用）
+  // 任务来源
+  source?: 'JIRA' | 'LOCAL';
 }
 
 /**
@@ -93,6 +95,7 @@ interface BoardState {
   setCurrentSprint: (sprint: string) => void;
   moveTask: (taskKey: string, targetColumn: string) => void;
   toggleSwimlane: (swimlaneId: SwimlaneType) => void;
+  setSwimlaneCollapsed: (swimlaneId: SwimlaneType, collapsed: boolean) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setLastSync: (timestamp: number) => void;
@@ -314,6 +317,18 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         newCollapsed.delete(swimlaneId);
       } else {
         newCollapsed.add(swimlaneId);
+      }
+      return { collapsedSwimlanes: newCollapsed };
+    });
+  },
+
+  setSwimlaneCollapsed: (swimlaneId, collapsed) => {
+    set((state) => {
+      const newCollapsed = new Set(state.collapsedSwimlanes);
+      if (collapsed) {
+        newCollapsed.add(swimlaneId);
+      } else {
+        newCollapsed.delete(swimlaneId);
       }
       return { collapsedSwimlanes: newCollapsed };
     });

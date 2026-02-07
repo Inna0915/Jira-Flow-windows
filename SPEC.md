@@ -1,131 +1,184 @@
-Project Name: Jira-Flow (Desktop Workbench)
-1. Project Overview
-A local-first, Windows-focused desktop application built with Electron. It serves as a developer workbench to synchronize Jira tasks, visualize them in a highly customized Kanban board (Agile Hive style), log daily work (Auto & Manual), sync to Obsidian, and generate/persist AI reports.
+---
 
-2. Tech Stack & Architecture
-Runtime: Electron (latest) with Multi-window support.
+# Project Name: Jira-Flow (Desktop Workbench)
 
-Frontend: React 18+, TypeScript, Vite.
+## 1. Project Overview
 
-Styling: TailwindCSS (Theme: Light Mode ONLY).
+A local-first, Windows-focused desktop application built with Electron. It serves as a unified developer workbench to:
 
-Database: SQLite (better-sqlite3).
+1. **Synchronize & Visualize** Jira tasks (Agile Hive style).
+2. **Manage Personal Tasks** (Local Kanban) alongside professional work.
+3. **Log Work** automatically or manually.
+4. **Generate AI Reports** with a hierarchical structure (Year/Quarter/Month/Week).
+5. **Sync to Obsidian** for knowledge management.
 
-Network: Axios (httpsAgent: { rejectUnauthorized: false }).
+## 2. Tech Stack & Architecture
 
-3. Core Business Logic (Strict)
-A. Data Sync & Mapping
-Sprint Logic: Auto-select the first sprint where state is 'active'.
+* **Runtime**: Electron (latest) with Multi-window support.
+* **Frontend**: React 18+, TypeScript, Vite.
+* **Styling**: TailwindCSS (Theme: Light Mode ONLY).
+* **Database**: SQLite (`better-sqlite3`).
+* **Network**: Axios (`httpsAgent: { rejectUnauthorized: false }`).
 
-Date Mapping: Primary: customfield_10329 (Planned End). Fallback: duedate.
+## 3. Core Business Logic (Strict)
 
-Sync Consistency: "Sync & Prune" strategy.
+### A. Data Sync & Mapping (Hybrid System)
 
-Tasks are stamped with a synced_at timestamp during fetch.
+* **Source Differentiation**:
+* **Jira Tasks**: `source = 'JIRA'`. Synced from API.
+* **Personal Tasks**: `source = 'LOCAL'`. Created locally via "New Task" modal.
 
-Stale tasks (older timestamp) are deleted post-sync to ensure 1:1 mirroring with Jira.
 
-B. Avatar System
-Source: t_settings (user_avatar_base64).
+* **Key Generation**:
+* Jira: Retains original Key (e.g., `PROJ-123`).
+* Personal: Generated Key `ME-{timestamp_suffix}` (e.g., `ME-4921`).
 
-Display: Custom Image > Identicon/Initials > NEVER Jira URL.
 
-C. Swimlane Logic (Strict)
-Overdue: due_date < Today AND status != Done/Closed.
+* **Sync Consistency ("Sync & Prune")**:
+* Jira tasks are stamped with `synced_at`. Stale Jira tasks are deleted post-sync.
+* **Protection**: `source='LOCAL'` tasks are **NEVER** deleted during Jira sync.
 
-On Schedule: due_date >= Today.
 
-Others: due_date IS NULL.
 
-D. Work Logging (Auto & Manual)
-Auto-Trigger:
+### B. Avatar System
 
-Story -> DONE
+* **Source**: `t_settings` (`user_avatar_base64`).
+* **Display**: Custom Image > Identicon/Initials > **NEVER** Jira URL.
 
-Bug -> VALIDATING
+### C. Swimlane Logic
 
-Logic: Insert into t_work_logs.
+1. **Overdue**: `due_date < Today` AND status != Done/Closed.
+2. **On Schedule**: `due_date >= Today`.
+3. **Others**: `due_date` IS NULL.
 
-Constraint: UNIQUE(task_key, log_date) to prevent duplicates on the same day.
+### D. Work Logging (Unified Flow)
 
-Content: Pure Task Title (No "Moved to..." text).
+* **Triggers**:
+* **Jira**: Story -> DONE / Bug -> VALIDATING.
+* **Personal**: Task -> DONE (Drag & Drop).
 
-E. Reports & Calendar System (New)
-Calendar Navigation:
 
-Month Click: Filters log list to the entire month.
+* **Storage**: `t_work_logs`.
+* **Constraint**: `UNIQUE(task_key, log_date)`.
+* **Content**: Pure Task Title. AI Reports read from this table, seamlessly blending Jira and Personal work.
 
-Week Number Click: Filters log list to that specific ISO week.
+### E. Reports & Calendar System (Hierarchical)
 
-Day Click: Filters log list to that specific date.
+* **Calendar UI**:
+* **Visuals**: No grid lines. "Today" has Blue Border + "今" badge.
+* **Indicators**: Blue Dot under date if tasks/logs exist.
+* **Localization**: Lunar Date + Festivals + Solar Terms (via `lunar-javascript`).
+* **Navigation**: Month Switcher (`<` `>`) must handle year transitions correctly.
 
-Report Persistence:
 
-Generated AI reports are Saved to DB, not ephemeral.
+* **Selection Logic**:
+* **Year/Quarter/Month/Week/Day**: Clicking filters the **Log List** (Right Panel) silently.
 
-Linked to specific Date Ranges (Weekly/Monthly).
 
-Report Viewer (Modal):
+* **Report Architecture (The "Matryoshka" System)**:
+* **Persistence**: Reports are saved to DB `t_generated_reports`.
+* **Viewer Modal (Split-View)**:
+* **Yearly Mode**: Sidebar lists "Annual Summary" + Links to Q1-Q4 Reports.
+* **Quarterly Mode**: Sidebar lists "Quarter Summary" + Links to Monthly Reports.
+* **Monthly Mode**: Sidebar lists "Monthly Summary" + Links to Weekly Reports.
+* **Weekly Mode**: Single Markdown content view.
 
-Weekly Mode: Displays single Markdown content.
 
-Monthly Mode (Split-View):
+* **Generation**: "Generate" buttons are embedded within the Viewer Modal.
 
-Sidebar: Lists "Monthly Summary" + All "Weekly Reports" in that month.
 
-Content: Displays selected report.
 
-F. Obsidian Integration
-Trigger: Same as Work Logging (Done/Validating).
+### F. Obsidian Integration
 
-Logic:
+* **Trigger**: Same as Work Logging.
+* **Logic**: Update Frontmatter if exists; Create new file if not.
 
-Check vault_path in settings.
+## 4. UI Design Specs
 
-If file exists: Update Frontmatter ONLY (Status, Date). Preserve Body.
+### A. Board Layout (Dual View & Elastic)
 
-If new: Create [Key] Summary.md with Frontmatter + Description.
+* **View Switcher**: Segmented Control in Header -> `[ Jira Project | Personal Board ]`.
+* **Jira View**: Shows `source='JIRA'`.
+* **Personal View**: Shows `source='LOCAL'` + **[New Task]** Button.
 
-4. UI Design Specs (Agile Hive Replica)
-A. Board Layout (Elastic & Fluid)
-Container: overflow-x-auto overflow-y-hidden.
 
-Column Sizing: Elastic Strategy.
+* **Elastic Columns**:
+* Logic: `flex-1 min-w-[280px] max-w-[400px] flex-shrink-0`.
+* Behavior: Fills available screen width, no empty whitespace on right.
 
-Logic: flex-1 min-w-[280px] max-w-[400px] flex-shrink-0.
 
-Behavior: Columns grow to fill screen (no whitespace) but maintain minimum readability width on small screens.
+* **Create Task Modal**:
+* Fields: Summary (Req), Priority, Due Date, Description.
+* Style: Clean, Agile Hive aligned.
 
-Alignment: Header cells and Swimlane cells MUST use identical width classes.
 
-B. Styling
-Swimlanes:
 
-Overdue: Red (#FFEBE6).
+### B. Reports Page Layout
 
-On Schedule: Teal/Green (#E6FCFF).
+* **Left**: Calendar Sidebar (Year/Quarter/Month selectors + Lunar Date Grid).
+* **Right**:
+* **Top**: Header with Filter Info + Buttons `[View Weekly]` `[View Monthly]` `[View Quarterly]` `[View Yearly]`.
+* **Body**: **Log List ONLY**. (No permanent AI panel).
 
-Others: Gray (#F4F5F7).
 
-Cards:
+* **Interaction**: All generation/viewing happens inside the **ReportViewerDialog**.
 
-Story: Blue Key, "UNCOVERED" badge.
+### C. Styling Standards
 
-Bug: Red left-strip.
+* **Swimlanes**: Overdue (Red #FFEBE6), On Schedule (Teal #E6FCFF), Others (Gray #F4F5F7).
+* **Cards**:
+* Jira: Blue Key, Status Badges.
+* Personal: Distinct style (optional) or consistent with Jira cards.
 
-Content: Truncated Summary & Sprint Tag.
 
-5. Database Schema (Reference)
-t_tasks: key, summary, status, assignee_name, issuetype, due_date, priority, sprint_state, synced_at.
 
-t_work_logs:
+## 5. Database Schema
 
-id, task_key, source ('JIRA'/'MANUAL'), summary, log_date.
+### `t_tasks` (Unified Task Store)
 
-Constraint: UNIQUE(task_key, log_date).
+| Field | Type | Note |
+| --- | --- | --- |
+| `key` | TEXT (PK) | `PROJ-123` or `ME-1234` |
+| `source` | TEXT | **'JIRA'** or **'LOCAL'** (Default 'JIRA') |
+| `summary` | TEXT |  |
+| `status` | TEXT |  |
+| `issuetype` | TEXT |  |
+| `sprint` | TEXT | 'Personal' for local tasks |
+| `sprint_state` | TEXT | 'active' for local tasks |
+| `mapped_column` | TEXT |  |
+| `assignee_name` | TEXT |  |
+| `assignee_avatar` | TEXT |  |
+| `due_date` | TEXT | YYYY-MM-DD |
+| `priority` | TEXT |  |
+| `updated_at` | TEXT |  |
+| `synced_at` | INTEGER |  |
+| `raw_json` | TEXT |  |
 
-t_generated_reports (New):
+### `t_work_logs`
 
-id (UUID), type ('daily'/'weekly'/'monthly'), start_date, end_date, content, created_at.
+| Field | Type | Note |
+| --- | --- | --- |
+| `id` | INTEGER (PK) |  |
+| `task_key` | TEXT |  |
+| `source` | TEXT | 'JIRA' / 'MANUAL' / 'LOCAL' |
+| `summary` | TEXT |  |
+| `log_date` | TEXT | YYYY-MM-DD |
+| **Constraint** |  | `UNIQUE(task_key, log_date)` |
 
-t_settings: s_key, s_value (includes obsidian_vault_path).
+### `t_generated_reports`
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `id` | TEXT (PK) | UUID |
+| `type` | TEXT | 'weekly' / 'monthly' / 'quarterly' / 'yearly' |
+| `start_date` | TEXT |  |
+| `end_date` | TEXT |  |
+| `content` | TEXT | Markdown |
+| `created_at` | INTEGER |  |
+
+### `t_settings`
+
+* `s_key` (PK), `s_value`.
+* Configs: `jira_config`, `ai_profiles`, `obsidian_config`, `user_avatar`.
+
+---

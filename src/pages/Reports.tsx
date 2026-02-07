@@ -10,7 +10,7 @@ type ViewMode = 'day' | 'week' | 'month' | 'quarter' | 'year';
 interface LogEntry {
   id: number;
   task_key: string;
-  source: 'JIRA' | 'MANUAL';
+  source: 'JIRA' | 'LOCAL' | 'MANUAL';
   summary: string;
   log_date: string;
   created_at: number;

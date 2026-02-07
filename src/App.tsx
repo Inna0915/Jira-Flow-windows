@@ -72,7 +72,7 @@ function App() {
                   : 'text-[#5E6C84] hover:bg-[#F4F5F7]'
               }`}
             >
-              工作日志
+              日志
             </button>
             <button
               onClick={() => setActiveTab('settings')}

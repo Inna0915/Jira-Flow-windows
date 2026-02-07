@@ -1,4 +1,4 @@
-import { X, Copy, ExternalLink, Calendar, User, Tag, Link2 } from 'lucide-react';
+import { X, Copy, ExternalLink, Calendar, User, Tag, Link2, Archive, Pencil } from 'lucide-react';
 import type { BoardTask } from '../stores/boardStore';
 import { Avatar } from './Avatar';
 import { toast } from 'sonner';
@@ -7,10 +7,17 @@ interface TaskDrawerProps {
   task: BoardTask | null;
   isOpen: boolean;
   onClose: () => void;
+  onArchive?: (taskKey: string) => void;
+  onEdit?: (task: any) => void;
 }
 
-export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
+export function TaskDrawer({ task, isOpen, onClose, onArchive, onEdit }: TaskDrawerProps) {
   if (!task) return null;
+
+  // 判断是否是个人任务
+  const isLocalTask = (task as any).source === 'LOCAL';
+  // 判断是否在 EXECUTED 列
+  const isInExecuted = task.column === 'EXECUTED' || task.status === 'EXECUTED';
 
   const handleCopyInfo = () => {
     const text = `${task.summary} - ${task.key}`;
@@ -182,6 +189,32 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
               {task.priority || 'Medium'}
             </span>
           </div>
+
+          {/* 底部操作按钮 */}
+          {isLocalTask && (
+            <div className="flex items-center gap-2 pt-4 border-t border-[#DFE1E6]">
+              {/* 编辑按钮 */}
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(task)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-[#0052CC] hover:bg-[#0747A6] text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Pencil className="h-4 w-4" />
+                  编辑
+                </button>
+              )}
+              {/* 归档按钮 - 仅在 EXECUTED 列显示 */}
+              {isInExecuted && onArchive && (
+                <button
+                  onClick={() => onArchive(task.key)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Archive className="h-4 w-4" />
+                  归档
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

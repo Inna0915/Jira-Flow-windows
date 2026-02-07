@@ -31,6 +31,7 @@ const databaseAPI = {
     getByTaskKey: (taskKey) => ipcRenderer.invoke('db:workLogs:getByTaskKey', taskKey),
     // 新接口
     logAutoJira: (task) => ipcRenderer.invoke('db:log-auto-jira', task),
+    logLocal: (task) => ipcRenderer.invoke('db:log-local', task),
     logManual: (content) => ipcRenderer.invoke('db:log-manual', content),
     getLogs: (startDate, endDate) => ipcRenderer.invoke('db:get-logs', { startDate, endDate }),
   },
@@ -107,6 +108,29 @@ const boardAPI = {
   updateTaskColumn: (taskKey, columnId) => ipcRenderer.invoke('db:update-task-column', taskKey, columnId),
 };
 
+// 任务 API（支持个人看板）
+const taskAPI = {
+  /**
+   * 创建个人任务
+   */
+  createPersonal: (data) => ipcRenderer.invoke('task:create-personal', data),
+  
+  /**
+   * 更新个人任务
+   */
+  updatePersonal: (taskKey, updates) => ipcRenderer.invoke('task:update-personal', taskKey, updates),
+  
+  /**
+   * 删除个人任务
+   */
+  deletePersonal: (taskKey) => ipcRenderer.invoke('task:delete-personal', taskKey),
+  
+  /**
+   * 按来源获取任务
+   */
+  getBySource: (source) => ipcRenderer.invoke('task:get-by-source', source),
+};
+
 // Obsidian 集成 API
 const obsidianAPI = {
   /**
@@ -176,6 +200,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   workLogs: databaseAPI.workLogs, // 提升到顶层方便访问
   jira: jiraAPI,
   board: boardAPI,
+  task: taskAPI, // 个人任务 API
   obsidian: obsidianAPI,
   ai: aiAPI,
   system: systemAPI,

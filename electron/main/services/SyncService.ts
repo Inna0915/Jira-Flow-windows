@@ -1082,6 +1082,7 @@ export class SyncService {
           description,
           parent,
           links,
+          source: record.source || 'JIRA',
         };
       });
 

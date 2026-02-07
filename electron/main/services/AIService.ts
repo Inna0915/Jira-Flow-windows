@@ -49,7 +49,7 @@ export const PROVIDER_TEMPLATES: Record<AIProvider, { name: string; baseUrl: str
   moonshot: {
     name: 'Moonshot (Kimi)',
     baseUrl: 'https://api.moonshot.cn/v1',
-    defaultModel: 'moonshot-v1-8k',
+    defaultModel: 'kimi-k2-thinking-turbo',
   },
   qwen: {
     name: 'Qwen (Aliyun)',

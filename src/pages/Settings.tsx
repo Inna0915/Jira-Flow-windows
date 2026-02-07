@@ -1080,7 +1080,7 @@ export function Settings() {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Jira Flow</h3>
-            <p className="text-gray-500">优雅的 Jira Agile 看板与 AI 工作报告</p>
+            <p className="text-gray-500">个人任务工作流</p>
           </div>
         </div>
         <div className="pt-4 border-t border-gray-100 space-y-2">

@@ -43,6 +43,11 @@ declare interface DatabaseAPI {
       summary: string;
       log_date: string;
     }) => Promise<{ success: boolean; isNew: boolean }>;
+    logLocal: (task: {
+      task_key: string;
+      summary: string;
+      log_date: string;
+    }) => Promise<{ success: boolean; isNew: boolean }>;
     logManual: (content: {
       summary: string;
       log_date: string;
@@ -52,7 +57,7 @@ declare interface DatabaseAPI {
       data?: Array<{
         id: number;
         task_key: string;
-        source: 'JIRA' | 'MANUAL';
+        source: 'JIRA' | 'LOCAL' | 'MANUAL';
         summary: string;
         log_date: string;
         created_at: number;
@@ -230,7 +235,7 @@ declare interface PromptTemplate {
 declare interface WorkLogForReport {
   task_key: string;
   summary: string;
-  source: 'JIRA' | 'MANUAL';
+  source: 'JIRA' | 'LOCAL' | 'MANUAL';
   log_date: string;
 }
 
@@ -353,6 +358,48 @@ declare interface ReportAPI {
   }>;
 }
 
+// 任务 API 类型
+declare interface TaskAPI {
+  createPersonal: (data: {
+    summary: string;
+    priority?: string;
+    dueDate?: string;
+    description?: string;
+    initialColumn?: string;
+  }) => Promise<{
+    success: true;
+    task: any;
+  } | {
+    success: false;
+    error: string;
+  }>;
+  updatePersonal: (taskKey: string, updates: {
+    summary?: string;
+    priority?: string;
+    due_date?: string;
+    description?: string;
+    status?: string;
+    mapped_column?: string;
+  }) => Promise<{
+    success: true;
+    task: any;
+  } | {
+    success: false;
+    error: string;
+  }>;
+  deletePersonal: (taskKey: string) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  getBySource: (source: string) => Promise<{
+    success: true;
+    data: any[];
+  } | {
+    success: false;
+    error: string;
+  }>;
+}
+
 // Electron API 类型声明
 declare global {
   interface Window {
@@ -361,6 +408,7 @@ declare global {
       workLogs: DatabaseAPI['workLogs']; // 提升到顶层
       jira: JiraAPI;
       board: BoardAPI;
+      task: TaskAPI; // 个人任务 API
       obsidian: ObsidianAPI;
       system: SystemAPI;
       ai: AIAPI;
