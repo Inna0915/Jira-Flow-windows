@@ -157,7 +157,7 @@ export function registerDatabaseIPCs(): void {
     }
   });
 
-  // 清空所有数据（保留头像等基础设置）
+  // 清空所有业务数据（保留 JIRA 配置等设置）
   ipcMain.handle('db:clear-all', () => {
     try {
       const result = clearAllData();

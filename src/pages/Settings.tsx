@@ -470,7 +470,7 @@ export function Settings() {
       if (result.success) {
         const data = result.data;
         toast.success(
-          `数据已清空。共移除 ${data?.tasksDeleted || 0} 个任务、${data?.workLogsDeleted || 0} 条工作日志、${data?.reportsDeleted || 0} 份报告。保留 ${data?.settingsPreserved || 0} 项设置。`
+          `业务数据已清空：${data?.tasksDeleted || 0} 个任务、${data?.workLogsDeleted || 0} 条工作日志、${data?.reportsDeleted || 0} 份报告。所有设置（包括 JIRA 配置）已保留。`
         );
         setIsClearDialogOpen(false);
         // 刷新页面以更新状态
@@ -911,7 +911,7 @@ export function Settings() {
             <span className="text-sm font-medium text-blue-900">Agile 看板配置（可选）</span>
           </div>
           <p className="mb-4 text-sm text-blue-700">
-            设置项目 Key 以启用 Agile 看板自动检测（如 PROJ-123 中的 PROJ）。留空则使用 JQL 同步。
+            设置项目 Key 以启用 Agile 看板自动检测（如 PROJ-123 中的 PDSTDTTA）。留空则使用 JQL 同步。
           </p>
           <div className="mb-4">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">项目 Key</label>
@@ -919,7 +919,7 @@ export function Settings() {
               type="text"
               value={jiraConfig.projectKey}
               onChange={(e) => setJiraConfig(prev => ({ ...prev, projectKey: e.target.value.toUpperCase() }))}
-              placeholder="PROJ"
+              placeholder="PDSTDTTA"
               className={inputClass}
             />
           </div>
@@ -1101,19 +1101,19 @@ export function Settings() {
       <p className="text-gray-500 mb-6">管理本地数据库和缓存设置</p>
 
       <div className="border border-red-200 rounded-lg p-6 bg-red-50/30">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">清空所有数据</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">清空业务数据</h3>
         <p className="text-sm text-gray-600 mb-4">
-          清除本地数据库中的所有数据，包括：所有任务（JIRA 和个人任务）、工作日志、生成的报告、Jira 同步状态。
+          清除本地数据库中的所有业务数据：任务（JIRA 和个人任务）、工作日志、生成的报告、同步时间戳。
           <br />
-          <span className="text-amber-600">保留：头像设置、AI 配置、Prompt 模板等基础设置。</span>
+          <span className="text-green-600 font-medium">✓ 完全保留：JIRA 连接配置、头像设置、AI 配置、Prompt 模板等所有设置。</span>
           <br />
-          此操作不会影响 Jira 上的任何数据。
+          此操作不会影响 Jira 服务器上的任何数据。
         </p>
         <button
           onClick={handleClearData}
           className="inline-flex items-center justify-center rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
         >
-          清空所有数据
+          清空业务数据
         </button>
       </div>
 
@@ -1126,16 +1126,16 @@ export function Settings() {
             
             {/* Body */}
             <p className="text-sm text-gray-600 mb-4">
-              此操作将清空以下所有数据：
+              此操作将清空以下业务数据：
             </p>
             <ul className="text-sm text-gray-600 mb-6 list-disc list-inside space-y-1">
               <li>所有任务数据（JIRA 和个人任务）</li>
               <li>所有工作日志记录</li>
               <li>所有生成的报告（周报/月报/季报/年报）</li>
-              <li>Jira 同步状态和连接信息</li>
+              <li>同步时间戳（下次同步将从新开始）</li>
             </ul>
-            <p className="text-sm text-amber-600 mb-2">
-              保留数据：头像设置、AI 配置、Prompt 模板等基础设置
+            <p className="text-sm text-green-600 mb-2 font-medium">
+              ✓ 完全保留：JIRA 连接配置、头像设置、AI 配置、Prompt 模板等所有设置
             </p>
             <p className="text-sm text-gray-500">
               此操作不可恢复，确定要继续吗？

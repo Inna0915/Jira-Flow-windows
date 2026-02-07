@@ -68,7 +68,7 @@ declare interface DatabaseAPI {
   query: (sql: string, params?: unknown[]) => Promise<{ success: boolean; data?: unknown; error?: string }>;
   
   /**
-   * 清空所有数据（保留头像等基础设置）
+   * 清空所有业务数据（保留 JIRA 配置等设置）
    */
   clearAll: () => Promise<{ 
     success: boolean; 
@@ -76,7 +76,7 @@ declare interface DatabaseAPI {
       tasksDeleted: number; 
       workLogsDeleted: number; 
       reportsDeleted: number;
-      settingsPreserved: number;
+      syncStatusCleared: boolean;
     }; 
     error?: string 
   }>;
