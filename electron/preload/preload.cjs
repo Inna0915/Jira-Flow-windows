@@ -155,6 +155,11 @@ const systemAPI = {
    * 在系统默认浏览器中打开 Jira Issue
    */
   openJiraIssue: (issueKey) => ipcRenderer.invoke('system:open-jira-issue', issueKey),
+  
+  /**
+   * 在系统默认浏览器中打开任意 URL
+   */
+  openExternal: (url) => ipcRenderer.invoke('system:open-external', url),
 };
 
 // AI 配置 API

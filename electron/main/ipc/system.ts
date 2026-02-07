@@ -37,5 +37,19 @@ export function registerSystemIPCs(): void {
     }
   });
 
+  /**
+   * 在系统默认浏览器中打开任意 URL
+   */
+  ipcMain.handle('system:open-external', async (_, url: string) => {
+    try {
+      console.log(`[System] Opening external URL: ${url}`);
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (error) {
+      console.error('[System] Failed to open external URL:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
   console.log('[IPC] System IPC handlers registered');
 }

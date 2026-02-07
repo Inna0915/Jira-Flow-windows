@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
+import { BookOpen, GitBranch } from 'lucide-react';
 import { Board } from './components/Board';
 import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
@@ -7,6 +8,19 @@ import { Reports } from './pages/Reports';
 function App() {
   const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'settings'>('board');
   const [isReady, setIsReady] = useState(false);
+
+  // 打开外部链接
+  const openExternalLink = async (url: string) => {
+    try {
+      const result = await window.electronAPI.system.openExternal(url);
+      if (!result.success) {
+        toast.error('打开链接失败', { description: result.error });
+      }
+    } catch (error) {
+      console.error('Failed to open external link:', error);
+      toast.error('打开链接失败');
+    }
+  };
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -51,8 +65,29 @@ function App() {
         <div className="electron-drag flex h-12 items-center border-b border-[#DFE1E6] bg-white px-4">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-[#0052CC]">Jira Flow</span>
-            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v1.2.0</span>
+            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v1.4.0</span>
           </div>
+          
+          {/* 外部链接按钮 */}
+          <div className="ml-6 flex items-center gap-2 electron-no-drag">
+            <button
+              onClick={() => openExternalLink('https://confluence.ykeey.tech/#all-updates')}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[#0052CC] hover:bg-[#F4F5F7] transition-colors"
+              title="打开 Confluence"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>Confluence</span>
+            </button>
+            <button
+              onClick={() => openExternalLink('http://172.18.11.224:7990/dashboard')}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[#0052CC] hover:bg-[#F4F5F7] transition-colors"
+              title="打开 Bitbucket"
+            >
+              <GitBranch className="h-4 w-4" />
+              <span>Bitbucket</span>
+            </button>
+          </div>
+          
           <div className="ml-auto flex items-center gap-2 electron-no-drag">
             <button
               onClick={() => setActiveTab('board')}

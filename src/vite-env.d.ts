@@ -298,6 +298,11 @@ declare interface SystemAPI {
    * 在系统默认浏览器中打开 Jira Issue
    */
   openJiraIssue: (issueKey: string) => Promise<{ success: boolean; error?: string }>;
+  
+  /**
+   * 在系统默认浏览器中打开任意 URL
+   */
+  openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 // Report 类型（支持年/季/月/周）

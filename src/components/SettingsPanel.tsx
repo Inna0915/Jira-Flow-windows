@@ -1110,7 +1110,7 @@ export function SettingsPanel() {
                 <span className="text-sm font-medium text-[#0052CC]">Agile 看板配置（可选）</span>
               </div>
               <p className="mb-3 text-xs text-[#5E6C84]">
-                设置项目 Key 以启用 Agile 看板自动检测（如 PROJ-123 中的 PROJ）。留空则使用 JQL 同步。
+                设置项目1 Key 以启用 Agile 看板自动检测（如 PROJ-123 中的 PDSTDTTA）。留空则使用 JQL 同步。
               </p>
               <div className="mb-4">
                 <label className="mb-1.5 block text-sm font-medium text-[#172B4D]">
@@ -1120,11 +1120,11 @@ export function SettingsPanel() {
                   type="text"
                   value={jiraConfig.projectKey}
                   onChange={(e) => setJiraConfig(prev => ({ ...prev, projectKey: e.target.value.toUpperCase() }))}
-                  placeholder="PROJ"
+                  placeholder="PDSTDTTA"
                   className={inputClass}
                 />
                 <p className="mt-1 text-xs text-[#5E6C84]">
-                  从任务 Key 前缀自动提取，例如 &quot;PROJ-123&quot; 的项目 Key 是 &quot;PROJ&quot;
+                  从任务 Key 前缀自动提取，例如 &quot;PROJ-123&quot; 的项目 Key 是 &quot;PDSTDTTA&quot;
                 </p>
               </div>
 
