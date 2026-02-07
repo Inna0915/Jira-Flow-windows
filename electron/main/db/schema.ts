@@ -433,3 +433,45 @@ export const reportsDB = {
     ).all(type, startDate, endDate);
   }
 };
+
+/**
+ * 清空所有数据库数据（用于数据清理）
+ * 保留设置表中的头像配置和基本设置
+ */
+export function clearAllData(): { 
+  tasksDeleted: number; 
+  workLogsDeleted: number; 
+  reportsDeleted: number;
+  settingsPreserved: number;
+} {
+  const db = getDatabase();
+  
+  // 清空任务表
+  const tasksResult = db.prepare('DELETE FROM t_tasks').run();
+  
+  // 清空工作日志表
+  const workLogsResult = db.prepare('DELETE FROM t_work_logs').run();
+  
+  // 清空生成的报告表
+  const reportsResult = db.prepare('DELETE FROM t_generated_reports').run();
+  
+  // 保留设置表中的头像和基本设置，只删除 Jira 相关的同步状态
+  const settingsResult = db.prepare("DELETE FROM t_settings WHERE s_key LIKE 'jira_%' OR s_key = 'last_sync' OR s_key = 'sync_status'").run();
+  
+  // 获取保留的设置数量
+  const preservedCount = db.prepare('SELECT COUNT(*) as count FROM t_settings').get() as { count: number };
+  
+  console.log('[Database] All data cleared:', {
+    tasksDeleted: tasksResult.changes,
+    workLogsDeleted: workLogsResult.changes,
+    reportsDeleted: reportsResult.changes,
+    settingsPreserved: preservedCount.count,
+  });
+  
+  return {
+    tasksDeleted: tasksResult.changes,
+    workLogsDeleted: workLogsResult.changes,
+    reportsDeleted: reportsResult.changes,
+    settingsPreserved: preservedCount.count,
+  };
+}

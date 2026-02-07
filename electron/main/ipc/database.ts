@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { getDatabase, settingsDB, tasksDB, workLogsDB } from '../db/schema';
+import { getDatabase, settingsDB, tasksDB, workLogsDB, clearAllData } from '../db/schema';
 
 /**
  * 注册数据库相关的 IPC 处理器
@@ -153,6 +153,17 @@ export function registerDatabaseIPCs(): void {
       }
     } catch (error) {
       console.error('[IPC] query error:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // 清空所有数据（保留头像等基础设置）
+  ipcMain.handle('db:clear-all', () => {
+    try {
+      const result = clearAllData();
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('[IPC] clear-all error:', error);
       return { success: false, error: String(error) };
     }
   });

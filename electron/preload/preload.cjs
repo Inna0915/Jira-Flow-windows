@@ -38,6 +38,11 @@ const databaseAPI = {
 
   // 原始 SQL 查询
   query: (sql, params) => ipcRenderer.invoke('db:query', sql, params ?? []),
+  
+  /**
+   * 清空所有数据（保留头像等基础设置）
+   */
+  clearAll: () => ipcRenderer.invoke('db:clear-all'),
 };
 
 // Jira API（通过 SyncService）

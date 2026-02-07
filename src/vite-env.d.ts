@@ -66,6 +66,20 @@ declare interface DatabaseAPI {
     }>;
   };
   query: (sql: string, params?: unknown[]) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+  
+  /**
+   * 清空所有数据（保留头像等基础设置）
+   */
+  clearAll: () => Promise<{ 
+    success: boolean; 
+    data?: { 
+      tasksDeleted: number; 
+      workLogsDeleted: number; 
+      reportsDeleted: number;
+      settingsPreserved: number;
+    }; 
+    error?: string 
+  }>;
 }
 
 // Jira 配置类型

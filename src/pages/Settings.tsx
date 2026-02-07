@@ -466,9 +466,12 @@ export function Settings() {
 
   const handleConfirmClearData = async () => {
     try {
-      const result = await window.electronAPI.database.tasks.clearAll();
+      const result = await window.electronAPI.database.clearAll();
       if (result.success) {
-        toast.success(`数据已清空。共移除 ${result.data?.deletedCount || 0} 个任务。`);
+        const data = result.data;
+        toast.success(
+          `数据已清空。共移除 ${data?.tasksDeleted || 0} 个任务、${data?.workLogsDeleted || 0} 条工作日志、${data?.reportsDeleted || 0} 份报告。保留 ${data?.settingsPreserved || 0} 项设置。`
+        );
         setIsClearDialogOpen(false);
         // 刷新页面以更新状态
         setTimeout(() => {
@@ -1098,9 +1101,13 @@ export function Settings() {
       <p className="text-gray-500 mb-6">管理本地数据库和缓存设置</p>
 
       <div className="border border-red-200 rounded-lg p-6 bg-red-50/30">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">清理本地缓存</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">清空所有数据</h3>
         <p className="text-sm text-gray-600 mb-4">
-          清除本地数据库中所有已下载的任务和 Sprint 数据。此操作不会影响 Jira 上的任何数据。
+          清除本地数据库中的所有数据，包括：所有任务（JIRA 和个人任务）、工作日志、生成的报告、Jira 同步状态。
+          <br />
+          <span className="text-amber-600">保留：头像设置、AI 配置、Prompt 模板等基础设置。</span>
+          <br />
+          此操作不会影响 Jira 上的任何数据。
         </p>
         <button
           onClick={handleClearData}
@@ -1118,8 +1125,20 @@ export function Settings() {
             <h3 className="text-lg font-bold text-gray-900 mb-3">确认清空数据?</h3>
             
             {/* Body */}
-            <p className="text-sm text-gray-600 mb-6">
-              此操作将移除本地所有缓存的任务数据，您需要重新同步。确定要继续吗？
+            <p className="text-sm text-gray-600 mb-4">
+              此操作将清空以下所有数据：
+            </p>
+            <ul className="text-sm text-gray-600 mb-6 list-disc list-inside space-y-1">
+              <li>所有任务数据（JIRA 和个人任务）</li>
+              <li>所有工作日志记录</li>
+              <li>所有生成的报告（周报/月报/季报/年报）</li>
+              <li>Jira 同步状态和连接信息</li>
+            </ul>
+            <p className="text-sm text-amber-600 mb-2">
+              保留数据：头像设置、AI 配置、Prompt 模板等基础设置
+            </p>
+            <p className="text-sm text-gray-500">
+              此操作不可恢复，确定要继续吗？
             </p>
             
             {/* Footer */}
