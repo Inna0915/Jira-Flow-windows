@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
-import { BookOpen, GitBranch } from 'lucide-react';
+import { BookOpen, GitBranch, Bug } from 'lucide-react';
 import { Board } from './components/Board';
 import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
@@ -85,6 +85,14 @@ function App() {
             >
               <GitBranch className="h-4 w-4" />
               <span>Bitbucket</span>
+            </button>
+            <button
+              onClick={() => openExternalLink('https://jira.ykeey.cn/secure/Dashboard.jspa')}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-[#0052CC] hover:bg-[#F4F5F7] transition-colors"
+              title="打开 Jira"
+            >
+              <Bug className="h-4 w-4" />
+              <span>Jira</span>
             </button>
           </div>
           
