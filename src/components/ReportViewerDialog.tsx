@@ -354,17 +354,42 @@ export function ReportViewerDialog({ isOpen, onClose, mode, currentDate }: Repor
 
       const logs = logsResult.success && logsResult.data ? logsResult.data : [];
 
-      // Format logs text
+      // Get tasks with due_date in the selected week and status not EXECUTED
+      const tasksResult = await window.electronAPI.database.query(
+        `SELECT * FROM t_tasks 
+         WHERE due_date >= ? AND due_date <= ? 
+         AND status != 'EXECUTED' 
+         AND mapped_column != 'EXECUTED'
+         AND status != 'ARCHIVED'
+         AND mapped_column != 'ARCHIVED'
+         ORDER BY due_date ASC`,
+        [formatDate(activeDateRange.start), formatDate(activeDateRange.end)]
+      );
+      
+      const pendingTasks: any[] = tasksResult.success && Array.isArray(tasksResult.data) ? tasksResult.data : [];
+
+      // Format logs text (标记为 EXECUTED 执行完成)
       const logsText = logs.length > 0 
-        ? logs.map((log: any) => `- ${log.log_date}: ${log.summary}`).join('\n')
+        ? logs.map((log: any) => `- ${log.log_date}: ${log.summary} [EXECUTED 执行完成]`).join('\n')
         : '本周无工作日志记录';
 
-      // Build system prompt with logs included
-      const reportTypeName = getReportTypeName(activeReport?.type || mode);
-      const systemPrompt = `你是一个专业的工作报告生成助手。请根据以下工作日志生成${reportTypeName}。
+      // Format pending tasks text (显示泳道状态)
+      const pendingTasksText = pendingTasks.length > 0
+        ? pendingTasks.map((t: any) => {
+            const column = t.mapped_column || t.status || '未知状态';
+            return `- ${t.key}: ${t.summary} [${column}] (截止: ${t.due_date})`;
+          }).join('\n')
+        : '本周无待完成任务';
 
-【工作日志】
+      // Build system prompt with logs and pending tasks included
+      const reportTypeName = getReportTypeName(activeReport?.type || mode);
+      const systemPrompt = `你是一个专业的工作报告生成助手。请根据以下工作日志和待完成任务生成${reportTypeName}。
+
+【工作日志 - 已执行任务】
 ${logsText}
+
+【待完成任务 - 截止日在本周】
+${pendingTasksText}
 
 模板要求：
 ${template.content}
