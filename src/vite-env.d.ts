@@ -417,6 +417,17 @@ declare interface TaskAPI {
     success: false;
     error: string;
   }>;
+  
+  /**
+   * 获取截止日在指定范围内的待完成任务
+   */
+  getPendingByDueDate: (startDate: string, endDate: string) => Promise<{
+    success: true;
+    data: any[];
+  } | {
+    success: false;
+    error: string;
+  }>;
 }
 
 // Electron API 类型声明

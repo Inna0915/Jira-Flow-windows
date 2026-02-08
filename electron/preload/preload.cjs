@@ -134,6 +134,11 @@ const taskAPI = {
    * 按来源获取任务
    */
   getBySource: (source) => ipcRenderer.invoke('task:get-by-source', source),
+  
+  /**
+   * 获取截止日在指定范围内的待完成任务
+   */
+  getPendingByDueDate: (startDate, endDate) => ipcRenderer.invoke('task:get-pending-by-due-date', { startDate, endDate }),
 };
 
 // Obsidian 集成 API

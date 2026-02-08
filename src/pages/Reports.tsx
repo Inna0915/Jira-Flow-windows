@@ -16,6 +16,17 @@ interface LogEntry {
   created_at: number;
 }
 
+interface PendingTask {
+  key: string;
+  summary: string;
+  status: string;
+  mapped_column: string;
+  due_date: string;
+  priority: string;
+  source: string;
+  assignee_name?: string;
+}
+
 // Format date as YYYY-MM-DD (local time)
 function formatDate(date: Date): string {
   const year = date.getFullYear();
@@ -72,6 +83,7 @@ export function Reports() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
   // Report viewer state
@@ -99,12 +111,22 @@ export function Reports() {
   const loadLogs = async () => {
     setIsLoading(true);
     try {
-      const result = await window.electronAPI.workLogs.getLogs(
+      // 加载已完成的工作日志
+      const logsResult = await window.electronAPI.workLogs.getLogs(
         formatDate(dateRange.start),
         formatDate(dateRange.end)
       );
-      if (result.success && result.data) {
-        setLogs(result.data);
+      if (logsResult.success && logsResult.data) {
+        setLogs(logsResult.data);
+      }
+      
+      // 加载预计完成的任务（截止日在当前时间范围内且未完成）
+      const pendingResult = await window.electronAPI.task.getPendingByDueDate(
+        formatDate(dateRange.start),
+        formatDate(dateRange.end)
+      );
+      if (pendingResult.success && pendingResult.data) {
+        setPendingTasks(pendingResult.data);
       }
     } catch (error) {
       console.error('[Reports] Failed to load logs:', error);
@@ -334,56 +356,117 @@ export function Reports() {
           </div>
         </div>
 
-        {/* Content - Only Log List (Full Width) */}
+        {/* Content - Pending Tasks & Log List */}
         <div className="flex-1 overflow-auto p-6">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-lg font-medium text-[#172B4D] mb-4">
-              工作日志 ({logs.length})
-            </h2>
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Pending Tasks Section */}
+            <div>
+              <h2 className="text-lg font-medium text-[#172B4D] mb-4">
+                预计完成任务 ({pendingTasks.length})
+                <span className="ml-2 text-sm font-normal text-[#6B778C]">截止日在{getPeriodLabel()}内</span>
+              </h2>
 
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12 text-[#6B778C]">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                加载中...
-              </div>
-            ) : logs.length === 0 ? (
-              <div className="text-center py-12 text-[#6B778C] bg-white rounded-lg border border-[#EBECF0]">
-                <p>暂无工作日志</p>
-                <p className="text-sm mt-1">在指定时间范围内没有找到记录</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {logs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-4 bg-white rounded-lg border border-[#EBECF0] hover:border-[#0052CC] transition-colors"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-0.5 bg-[#0052CC]/10 text-[#0052CC] text-xs rounded font-medium">
-                            {log.log_date}
-                          </span>
-                          {log.task_key && (
-                            <span className="text-xs text-[#6B778C] font-mono">
-                              {log.task_key}
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8 text-[#6B778C]">
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  加载中...
+                </div>
+              ) : pendingTasks.length === 0 ? (
+                <div className="text-center py-8 text-[#6B778C] bg-white rounded-lg border border-[#EBECF0]">
+                  <p>暂无预计完成的任务</p>
+                  <p className="text-sm mt-1">当前时间范围内没有截止的待完成任务</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingTasks.map((task) => (
+                    <div
+                      key={task.key}
+                      className="p-4 bg-white rounded-lg border border-[#EBECF0] hover:border-[#0052CC] transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-0.5 bg-[#FFAB00]/10 text-[#FFAB00] text-xs rounded font-medium">
+                              截止: {task.due_date}
                             </span>
+                            <span className="text-xs text-[#6B778C] font-mono">
+                              {task.key}
+                            </span>
+                            <span className={`px-1.5 py-0.5 text-xs rounded ${
+                              task.source === 'JIRA' 
+                                ? 'bg-[#E3FCEF] text-[#36B37E]' 
+                                : 'bg-[#DEEBFF] text-[#0052CC]'
+                            }`}>
+                              {task.source === 'JIRA' ? 'Jira' : '个人'}
+                            </span>
+                            <span className="px-1.5 py-0.5 text-xs rounded bg-[#F4F5F7] text-[#6B778C]">
+                              {task.mapped_column || task.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[#172B4D]">{task.summary}</p>
+                          {task.assignee_name && (
+                            <p className="text-xs text-[#6B778C] mt-1">
+                              负责人: {task.assignee_name}
+                            </p>
                           )}
-                          <span className={`px-1.5 py-0.5 text-xs rounded ${
-                            log.source === 'JIRA' 
-                              ? 'bg-[#E3FCEF] text-[#36B37E]' 
-                              : 'bg-[#F4F5F7] text-[#6B778C]'
-                          }`}>
-                            {log.source === 'JIRA' ? 'Jira' : '手动'}
-                          </span>
                         </div>
-                        <p className="text-sm text-[#172B4D]">{log.summary}</p>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-[#EBECF0] pt-6">
+              <h2 className="text-lg font-medium text-[#172B4D] mb-4">
+                已完成工作 ({logs.length})
+              </h2>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12 text-[#6B778C]">
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  加载中...
+                </div>
+              ) : logs.length === 0 ? (
+                <div className="text-center py-12 text-[#6B778C] bg-white rounded-lg border border-[#EBECF0]">
+                  <p>暂无工作日志</p>
+                  <p className="text-sm mt-1">在指定时间范围内没有找到记录</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {logs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-4 bg-white rounded-lg border border-[#EBECF0] hover:border-[#0052CC] transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-0.5 bg-[#36B37E]/10 text-[#36B37E] text-xs rounded font-medium">
+                              {log.log_date} [EXECUTED 执行完成]
+                            </span>
+                            {log.task_key && (
+                              <span className="text-xs text-[#6B778C] font-mono">
+                                {log.task_key}
+                              </span>
+                            )}
+                            <span className={`px-1.5 py-0.5 text-xs rounded ${
+                              log.source === 'JIRA' 
+                                ? 'bg-[#E3FCEF] text-[#36B37E]' 
+                                : 'bg-[#F4F5F7] text-[#6B778C]'
+                            }`}>
+                              {log.source === 'JIRA' ? 'Jira' : '手动'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[#172B4D]">{log.summary}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

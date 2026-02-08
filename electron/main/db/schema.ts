@@ -280,6 +280,23 @@ export const tasksDB = {
   getByKey(key: string): any | null {
     return getDatabase().prepare('SELECT * FROM t_tasks WHERE key = ?').get(key) || null;
   },
+  // 获取截止日在指定范围内且未完成的任务（用于工作日志展示）
+  getPendingTasksByDueDate(startDate: string, endDate: string): any[] {
+    return getDatabase().prepare(
+      `SELECT * FROM t_tasks 
+       WHERE due_date >= ? AND due_date <= ? 
+       AND status != 'EXECUTED' 
+       AND mapped_column != 'EXECUTED'
+       AND status != 'DONE'
+       AND mapped_column != 'DONE'
+       AND status != 'CLOSED'
+       AND mapped_column != 'CLOSED'
+       AND status != 'ARCHIVED'
+       AND mapped_column != 'ARCHIVED'
+       AND due_date != ''
+       ORDER BY due_date ASC`
+    ).all(startDate, endDate);
+  },
   // 删除个人任务（安全检查：只能删除 LOCAL 来源的任务）
   deletePersonal(key: string): { success: boolean; error?: string } {
     const task = this.getByKey(key);

@@ -354,19 +354,13 @@ export function ReportViewerDialog({ isOpen, onClose, mode, currentDate }: Repor
 
       const logs = logsResult.success && logsResult.data ? logsResult.data : [];
 
-      // Get tasks with due_date in the selected week and status not EXECUTED
-      const tasksResult = await window.electronAPI.database.query(
-        `SELECT * FROM t_tasks 
-         WHERE due_date >= ? AND due_date <= ? 
-         AND status != 'EXECUTED' 
-         AND mapped_column != 'EXECUTED'
-         AND status != 'ARCHIVED'
-         AND mapped_column != 'ARCHIVED'
-         ORDER BY due_date ASC`,
-        [formatDate(activeDateRange.start), formatDate(activeDateRange.end)]
+      // Get pending tasks (due_date in range and not completed)
+      const pendingTasksResult = await window.electronAPI.task.getPendingByDueDate(
+        formatDate(activeDateRange.start),
+        formatDate(activeDateRange.end)
       );
       
-      const pendingTasks: any[] = tasksResult.success && Array.isArray(tasksResult.data) ? tasksResult.data : [];
+      const pendingTasks = pendingTasksResult.success && pendingTasksResult.data ? pendingTasksResult.data : [];
 
       // Format logs text (标记为 EXECUTED 执行完成)
       const logsText = logs.length > 0 
@@ -377,7 +371,8 @@ export function ReportViewerDialog({ isOpen, onClose, mode, currentDate }: Repor
       const pendingTasksText = pendingTasks.length > 0
         ? pendingTasks.map((t: any) => {
             const column = t.mapped_column || t.status || '未知状态';
-            return `- ${t.key}: ${t.summary} [${column}] (截止: ${t.due_date})`;
+            const source = t.source === 'LOCAL' ? '个人任务' : 'JIRA';
+            return `- ${t.key}: ${t.summary} [${column}] (${source}) (截止: ${t.due_date})`;
           }).join('\n')
         : '本周无待完成任务';
 

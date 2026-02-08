@@ -145,5 +145,18 @@ export function registerTaskIPCs(): void {
     }
   });
 
+  /**
+   * 获取截止日在指定范围内的待完成任务
+   */
+  ipcMain.handle('task:get-pending-by-due-date', async (_, { startDate, endDate }: { startDate: string; endDate: string }) => {
+    try {
+      const tasks = tasksDB.getPendingTasksByDueDate(startDate, endDate);
+      return { success: true, data: tasks };
+    } catch (error) {
+      console.error('[IPC] Failed to get pending tasks by due date:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
   console.log('[IPC] Task IPC handlers registered');
 }
