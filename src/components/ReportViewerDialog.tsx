@@ -354,9 +354,17 @@ export function ReportViewerDialog({ isOpen, onClose, mode, currentDate }: Repor
 
       const logs = logsResult.success && logsResult.data ? logsResult.data : [];
 
-      // Build system prompt
+      // Format logs text
+      const logsText = logs.length > 0 
+        ? logs.map((log: any) => `- ${log.log_date}: ${log.summary}`).join('\n')
+        : '本周无工作日志记录';
+
+      // Build system prompt with logs included
       const reportTypeName = getReportTypeName(activeReport?.type || mode);
-      const systemPrompt = `你是一个专业的工作报告生成助手。请根据提供的工作日志生成${reportTypeName}。
+      const systemPrompt = `你是一个专业的工作报告生成助手。请根据以下工作日志生成${reportTypeName}。
+
+【工作日志】
+${logsText}
 
 模板要求：
 ${template.content}
