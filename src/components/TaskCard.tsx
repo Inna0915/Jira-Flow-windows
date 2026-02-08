@@ -45,7 +45,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
         border border-[#DFE1E6]
         ${isBug ? 'border-l-4 border-l-[#FF5630]' : 'border-l-4 border-l-[#36B37E]'}
         ${isHovered ? 'ring-1 ring-[#4C9AFF]' : ''}
-        w-[190px] h-[210px] flex flex-col
+        w-full h-[210px] flex flex-col
       `}
     >
       {/* Bug 标签 */}
