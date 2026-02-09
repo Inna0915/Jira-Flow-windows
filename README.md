@@ -1,4 +1,4 @@
-# Jira Flow v1.7.1
+# Jira Flow v1.7.2
 
 一个本地优先的 Windows 桌面应用，用于同步 Jira 任务、可视化看板管理、记录工作日志，并生成 AI 驱动的周报。
 

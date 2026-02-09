@@ -1052,6 +1052,7 @@ export class SyncService {
           assignee_avatar: first.assignee_avatar ? 'has avatar' : 'NULL',
           priority: first.priority || 'NULL',
           due_date: first.due_date || 'NULL',
+          story_points: first.story_points ?? 'NULL',
           issuetype: first.issuetype || 'NULL',
         });
       }
@@ -1119,6 +1120,7 @@ export class SyncService {
           assignee: tasks[0].assignee ? tasks[0].assignee.name : 'NULL',
           priority: tasks[0].priority,
           dueDate: tasks[0].dueDate || 'NULL',
+          storyPoints: tasks[0].storyPoints ?? 'NULL',
         });
       }
 
