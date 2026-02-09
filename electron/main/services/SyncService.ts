@@ -1102,13 +1102,13 @@ export class SyncService {
             name: record.assignee_name,
             avatar: record.assignee_avatar || undefined,
           } : null,
-          dueDate: record.due_date,
+          dueDate: record.due_date || null,
           isOverdue,
           isDueSoon,
           description,
           parent,
           links,
-          storyPoints: record.story_points,
+          storyPoints: record.story_points ?? null,
           source: record.source || 'JIRA',
         };
       });
