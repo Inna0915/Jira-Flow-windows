@@ -4,10 +4,11 @@ import { BookOpen, GitBranch, Bug, Plus } from 'lucide-react';
 import { Board } from './components/Board';
 import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
+import { History } from './pages/History';
 import { GlobalActionProvider, useGlobalAction } from './contexts/GlobalActionContext';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'settings'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'settings' | 'history'>('board');
   const [isReady, setIsReady] = useState(false);
   const { openCreateTask } = useGlobalAction();
 
@@ -142,6 +143,16 @@ function AppContent() {
             >
               设置
             </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === 'history'
+                  ? 'bg-[#0052CC] text-white'
+                  : 'text-[#5E6C84] hover:bg-[#F4F5F7]'
+              }`}
+            >
+              历史
+            </button>
             
             {/* 新建个人任务按钮 */}
             <div className="h-6 w-px bg-[#DFE1E6] mx-1" />
@@ -161,6 +172,7 @@ function AppContent() {
           {activeTab === 'board' && <Board />}
           {activeTab === 'reports' && <Reports />}
           {activeTab === 'settings' && <Settings />}
+          {activeTab === 'history' && <History />}
         </main>
       </div>
     </>
