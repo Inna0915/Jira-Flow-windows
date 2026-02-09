@@ -984,14 +984,18 @@ export class SyncService {
   }
 
   /**
-   * 清理过期任务：删除 synced_at 早于当前同步时间戳的任务
+   * 清理过期任务：删除 synced_at 早于当前同步时间戳的 JIRA 任务
    * 这些任务已从 Jira Sprint/Backlog 中移除
+   * 注意：保留 LOCAL 个人任务，避免被误删
    */
   private pruneStaleTasks(syncTimestamp: number): number {
     try {
       const db = getDatabase();
-      const result = db.prepare('DELETE FROM t_tasks WHERE synced_at < ?').run(syncTimestamp);
-      console.log(`[SyncService] Pruned ${result.changes} stale tasks (synced_at < ${syncTimestamp})`);
+      // 只删除 JIRA 来源的过期任务，保留 LOCAL 个人任务
+      const result = db.prepare(
+        "DELETE FROM t_tasks WHERE synced_at < ? AND (source IS NULL OR source = 'JIRA')"
+      ).run(syncTimestamp);
+      console.log(`[SyncService] Pruned ${result.changes} stale JIRA tasks (synced_at < ${syncTimestamp}, source = JIRA)`);
       return result.changes;
     } catch (error) {
       console.error('[SyncService] Failed to prune stale tasks:', error);
