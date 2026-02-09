@@ -21,8 +21,8 @@ function isPortableMode(): boolean {
     
     console.log('[Database] Checking portable mode:', { exePath, exeName, exeDir });
     
-    // 检查文件名是否包含 portable
-    if (exeName.includes('portable')) {
+    // 检查文件名是否包含 portable（不区分大小写）
+    if (exeName.toLowerCase().includes('portable')) {
       console.log('[Database] Portable mode detected: executable name contains "portable"');
       return true;
     }
