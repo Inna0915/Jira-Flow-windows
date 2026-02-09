@@ -90,6 +90,8 @@ export function CreateTaskModal({ isOpen, onClose, onSave, task }: CreateTaskMod
 
         if (result.success) {
           toast.success('任务创建成功');
+          // Dispatch global event for task creation
+          window.dispatchEvent(new CustomEvent('task-created'));
           onSave();
           handleClose();
         } else {

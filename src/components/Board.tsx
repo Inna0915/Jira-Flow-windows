@@ -76,6 +76,17 @@ export function Board() {
     }
   }, [viewMode, loadLocalTasks]);
 
+  // 监听全局任务创建事件，自动刷新本地任务列表
+  useEffect(() => {
+    const handleTaskCreated = () => {
+      if (viewMode === 'LOCAL') {
+        loadLocalTasks();
+      }
+    };
+    window.addEventListener('task-created', handleTaskCreated);
+    return () => window.removeEventListener('task-created', handleTaskCreated);
+  }, [viewMode, loadLocalTasks]);
+
   // 根据任务数量自动展开/收起泳道
   useEffect(() => {
     if (viewMode === 'JIRA') {

@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
-import { BookOpen, GitBranch, Bug } from 'lucide-react';
+import { BookOpen, GitBranch, Bug, Plus } from 'lucide-react';
 import { Board } from './components/Board';
 import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
+import { GlobalActionProvider, useGlobalAction } from './contexts/GlobalActionContext';
 
-function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState<'board' | 'reports' | 'settings'>('board');
   const [isReady, setIsReady] = useState(false);
+  const { openCreateTask } = useGlobalAction();
 
   // 打开外部链接
   const openExternalLink = async (url: string) => {
@@ -21,6 +23,19 @@ function App() {
       toast.error('打开链接失败');
     }
   };
+
+  // Global keyboard shortcut Ctrl+N / Cmd+N
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        openCreateTask();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [openCreateTask]);
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -127,6 +142,17 @@ function App() {
             >
               设置
             </button>
+            
+            {/* 新建个人任务按钮 */}
+            <div className="h-6 w-px bg-[#DFE1E6] mx-1" />
+            <button
+              onClick={openCreateTask}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white bg-[#0052CC] hover:bg-[#0747A6] transition-colors"
+              title="新建个人任务 (Ctrl+N)"
+            >
+              <Plus className="h-4 w-4" />
+              <span>新建</span>
+            </button>
           </div>
         </div>
 
@@ -138,6 +164,14 @@ function App() {
         </main>
       </div>
     </>
+  );
+}
+
+function App() {
+  return (
+    <GlobalActionProvider>
+      <AppContent />
+    </GlobalActionProvider>
   );
 }
 
