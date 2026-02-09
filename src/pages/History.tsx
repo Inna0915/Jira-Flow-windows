@@ -169,15 +169,28 @@ export function History() {
     }
   };
 
-  const openEditModal = (row: any) => {
+  const openEditModal = async (row: any) => {
     console.log('[History] Opening edit modal with row:', row);
+    
+    // Ensure columns are loaded
+    if (columns.length === 0) {
+      console.log('[History] Columns not loaded, loading schema first...');
+      await loadSchema();
+    }
+    
     console.log('[History] Available columns:', columns.map(c => c.name));
     setEditingRow(row);
     setEditForm({ ...row });
     setIsCreateMode(false);
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
+    // Ensure columns are loaded
+    if (columns.length === 0) {
+      console.log('[History] Columns not loaded, loading schema first...');
+      await loadSchema();
+    }
+    
     setEditingRow({});
     // Initialize empty form with all columns
     const emptyForm: Record<string, any> = {};
