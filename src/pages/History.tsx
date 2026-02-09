@@ -127,13 +127,18 @@ export function History() {
     }
   }, [activeTable, page, pageSize, searchColumn, searchValue]);
 
+  // Initial load and when table changes
   useEffect(() => {
+    console.log('[History] Table changed or mounted, loading schema for:', activeTable);
     setColumns([]);
     setSearchColumn('');
-    loadSchema();
     setPage(1);
-  }, [activeTable, loadSchema]);
+    loadSchema().then(cols => {
+      console.log('[History] Schema loaded:', cols);
+    });
+  }, [activeTable]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load data when pagination or search changes
   useEffect(() => {
     loadData();
   }, [loadData]);
