@@ -590,7 +590,10 @@ export class SyncService {
           params.jql = jql;
         }
         
-        const response = await this.agileClient.get(`/rest/agile/1.0/board/${boardId}/backlog`, { params });
+        const requestUrl = `/rest/agile/1.0/board/${boardId}/backlog`;
+        console.log(`[SyncService] Backlog API Request: ${requestUrl}`, { params });
+        
+        const response = await this.agileClient.get(requestUrl, { params });
 
         const issues: AgileIssue[] = response.data.issues || [];
         total = response.data.total || 0;
@@ -856,7 +859,8 @@ export class SyncService {
   }> {
     // 1. 定义统一的同步时间戳
     const syncTimestamp = Date.now();
-    console.log(`[SyncService] Starting 4-Step Agile Sync (timestamp: ${syncTimestamp})...`);
+    const jiraHost = settingsDB.get('jira_host') || 'unknown';
+    console.log(`[SyncService] Starting 4-Step Agile Sync (host: ${jiraHost}, timestamp: ${syncTimestamp})...`);
 
     // Step 1: 检测 Board ID
     const boardResult = await this.detectBoardId(projectKey);
@@ -902,6 +906,21 @@ export class SyncService {
     let backlogIssues: AgileIssue[] = [];
     if (backlogResult.success) {
       backlogIssues = backlogResult.issues;
+      
+      // 诊断：检查 Backlog 中是否包含 Sprint 任务（这本不该发生）
+      const issuesWithSprint = backlogIssues.filter(issue => 
+        issue.fields?.sprint || issue.fields?.closedSprints?.length
+      );
+      if (issuesWithSprint.length > 0) {
+        console.warn(`[SyncService] WARNING: Backlog contains ${issuesWithSprint.length} issues that have sprint info:`, 
+          issuesWithSprint.slice(0, 3).map(i => i.key)
+        );
+        // 过滤掉这些有 Sprint 的任务（防止域名访问时的异常行为）
+        console.log(`[SyncService] Filtering out ${issuesWithSprint.length} issues with sprint info from backlog`);
+        backlogIssues = backlogIssues.filter(issue => 
+          !issue.fields?.sprint && !issue.fields?.closedSprints?.length
+        );
+      }
     }
 
     // 转换并保存 Sprint 任务（使用统一的 syncTimestamp）
