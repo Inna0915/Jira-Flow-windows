@@ -293,5 +293,58 @@ export function registerJiraIPCs(): void {
     }
   });
 
+  /**
+   * 更新 Issue 字段（故事点、截止日期）
+   * payload: { key: string, fields: { storyPoints?: number; dueDate?: string } }
+   */
+  ipcMain.handle('jira:update-issue', async (_, { key, fields }: { 
+    key: string; 
+    fields: { storyPoints?: number | null; dueDate?: string | null };
+  }) => {
+    try {
+      console.log('[IPC] Updating Jira issue:', key, fields);
+      
+      if (!syncService.isConfigured()) {
+        const initialized = syncService.initializeFromDB();
+        if (!initialized) {
+          return { 
+            success: false, 
+            error: 'Jira 未配置' 
+          };
+        }
+      }
+
+      const client = syncService.getClient();
+      if (!client) {
+        return { success: false, error: 'Jira 客户端未初始化' };
+      }
+
+      // 获取字段配置
+      const storyPointsField = settingsDB.get('jira_storyPointsField') || undefined;
+      const dueDateField = settingsDB.get('jira_dueDateField') || 'duedate';
+      
+      // 调用 Jira API 更新
+      const result = await client.updateIssue(key, fields, storyPointsField, dueDateField);
+      
+      if (result.success) {
+        // 更新本地数据库
+        const { tasksDB } = await import('../db/schema');
+        tasksDB.updatePersonal(key, {
+          story_points: fields.storyPoints,
+          due_date: fields.dueDate,
+        });
+        console.log('[IPC] Issue updated successfully:', key);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[IPC] Update issue error:', error);
+      return { 
+        success: false, 
+        error: `更新任务失败: ${String(error)}` 
+      };
+    }
+  });
+
   console.log('[IPC] Jira IPC handlers registered');
 }

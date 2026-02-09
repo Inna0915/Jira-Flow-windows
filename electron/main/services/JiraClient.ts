@@ -91,10 +91,17 @@ export interface JiraUserInfo {
 
 /**
  * 使用 TextDecoder 手动解码响应数据，修复中文乱码问题
+ * 处理空响应（如 204 No Content）的情况
  */
 function decodeResponse(data: ArrayBuffer): any {
+  if (!data || data.byteLength === 0) {
+    return null; // 空响应，返回 null
+  }
   const decoder = new TextDecoder('utf-8');
   const jsonStr = decoder.decode(data);
+  if (!jsonStr || jsonStr.trim() === '') {
+    return null; // 空字符串，返回 null
+  }
   return JSON.parse(jsonStr);
 }
 
@@ -272,6 +279,94 @@ export class JiraClient {
         return { success: false, error: message };
       }
       return { success: false, error: String(error) };
+    }
+  }
+
+  /**
+   * 更新 Issue 字段（故事点、截止日期等）
+   * @param issueKey 任务 Key
+   * @param fields 要更新的字段对象
+   * @param storyPointsField Story Points 自定义字段 ID（如 customfield_10016）
+   * @param dueDateField Due Date 字段 ID（默认 duedate，可配置为自定义字段）
+   */
+  public async updateIssue(
+    issueKey: string,
+    fields: { storyPoints?: number | null; dueDate?: string | null },
+    storyPointsField?: string,
+    dueDateField: string = 'duedate'
+  ): Promise<{ success: true } | { success: false; error: string }> {
+    try {
+      const updateFields: Record<string, any> = {};
+      
+      // 更新故事点
+      if (fields.storyPoints !== undefined) {
+        const fieldId = storyPointsField || 'customfield_10016'; // 默认字段 ID
+        updateFields[fieldId] = fields.storyPoints;
+      }
+      
+      // 更新截止日期
+      if (fields.dueDate !== undefined) {
+        // Jira API: 空字符串表示清除日期，null 可能不被接受
+        updateFields[dueDateField] = fields.dueDate === null ? '' : fields.dueDate;
+      }
+      
+      if (Object.keys(updateFields).length === 0) {
+        return { success: true }; // 没有要更新的字段
+      }
+      
+      console.log('[JiraClient] Updating issue:', issueKey, 'fields:', JSON.stringify(updateFields));
+      
+      // 使用特殊配置处理可能返回 204 No Content 的 PUT 请求
+      const response = await this.client.put(`/rest/api/2/issue/${issueKey}`, {
+        fields: updateFields,
+      }, {
+        transformResponse: [(data: ArrayBuffer) => {
+          // PUT 请求可能返回空响应，直接返回 null
+          if (!data || data.byteLength === 0) return null;
+          try {
+            return decodeResponse(data);
+          } catch (e) {
+            // 解析失败也返回 null（可能是空响应或无效 JSON）
+            return null;
+          }
+        }]
+      });
+      
+      console.log('[JiraClient] Issue updated successfully:', issueKey, 'response:', response.status);
+      return { success: true };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        // 记录详细的错误信息
+        const responseData = error.response?.data;
+        console.error('[JiraClient] Update failed:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: responseData,
+          errors: responseData?.errors,
+          errorMessages: responseData?.errorMessages,
+        });
+        
+        // 构建详细的错误消息
+        let message = error.response?.data?.errorMessages?.[0];
+        
+        // 检查字段特定错误
+        if (!message && responseData?.errors) {
+          const fieldErrors = Object.entries(responseData.errors)
+            .map(([field, err]) => `${field}: ${err}`)
+            .join(', ');
+          if (fieldErrors) {
+            message = fieldErrors;
+          }
+        }
+        
+        // 默认错误消息
+        if (!message) {
+          message = error.message;
+        }
+        
+        return { success: false, error: `更新失败: ${message}` };
+      }
+      return { success: false, error: `未知错误: ${String(error)}` };
     }
   }
 }

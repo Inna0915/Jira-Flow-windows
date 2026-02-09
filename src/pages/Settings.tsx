@@ -14,6 +14,8 @@ interface JiraConfig {
   username: string;
   password: string;
   projectKey: string;
+  storyPointsField?: string;
+  dueDateField?: string;
 }
 
 interface AvatarSettings {
@@ -86,6 +88,8 @@ export function Settings() {
     username: '',
     password: '',
     projectKey: '',
+    storyPointsField: '',
+    dueDateField: 'duedate', // 默认使用标准 duedate 字段
   });
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -144,7 +148,18 @@ export function Settings() {
           username: data.username,
           password: data.password || '',
           projectKey: data.projectKey || '',
+          storyPointsField: '',
         });
+      }
+      // 加载 Story Points 字段 ID
+      const spFieldResult = await window.electronAPI.database.settings.get('jira_storyPointsField');
+      if (spFieldResult.success && spFieldResult.data) {
+        setJiraConfig(prev => ({ ...prev, storyPointsField: spFieldResult.data || '' }));
+      }
+      // 加载 Due Date 字段 ID
+      const dueDateFieldResult = await window.electronAPI.database.settings.get('jira_dueDateField');
+      if (dueDateFieldResult.success && dueDateFieldResult.data) {
+        setJiraConfig(prev => ({ ...prev, dueDateField: dueDateFieldResult.data || 'duedate' }));
       }
       const autoSyncResult = await window.electronAPI.database.settings.get('jira_autoSyncInterval');
       if (autoSyncResult.success && autoSyncResult.data) {
@@ -538,6 +553,12 @@ export function Settings() {
     const loadingToast = toast.loading('正在保存...');
     try {
       const result = await window.electronAPI.jira.saveConfig(jiraConfig);
+      // 保存 Story Points 字段 ID
+      if (jiraConfig.storyPointsField) {
+        await window.electronAPI.database.settings.set('jira_storyPointsField', jiraConfig.storyPointsField);
+      }
+      // 保存 Due Date 字段 ID
+      await window.electronAPI.database.settings.set('jira_dueDateField', jiraConfig.dueDateField || 'duedate');
       toast.dismiss(loadingToast);
       if (result.success) {
         toast.success('配置保存成功！');
@@ -934,6 +955,40 @@ export function Settings() {
               className={inputClass}
             />
             <p className="mt-1 text-xs text-gray-500">看板将每隔指定分钟数自动进行增量同步。最小 1 分钟，默认 5 分钟。</p>
+          </div>
+          <div className="mt-4">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              Story Points 字段 ID
+              <span className="ml-1 text-xs text-gray-400 font-normal">（可选）</span>
+            </label>
+            <input
+              type="text"
+              value={jiraConfig.storyPointsField || ''}
+              onChange={(e) => setJiraConfig(prev => ({ ...prev, storyPointsField: e.target.value }))}
+              placeholder="customfield_10016"
+              className={inputClass}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              您的 Jira 实例中 Story Points 的自定义字段 ID。可通过 Jira API 或咨询管理员获取。
+              例如：customfield_10111等。
+            </p>
+          </div>
+          <div className="mt-4">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              截止日期字段 ID
+              <span className="ml-1 text-xs text-gray-400 font-normal">（可选）</span>
+            </label>
+            <input
+              type="text"
+              value={jiraConfig.dueDateField || 'duedate'}
+              onChange={(e) => setJiraConfig(prev => ({ ...prev, dueDateField: e.target.value }))}
+              placeholder="duedate"
+              className={inputClass}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Due Date 字段 ID。如果标准字段（duedate）被禁用，请使用自定义字段 ID。
+              例如：customfield_10329 (Planned End Date)。留空则使用 duedate。
+            </p>
           </div>
         </div>
         

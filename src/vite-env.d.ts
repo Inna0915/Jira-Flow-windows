@@ -114,6 +114,7 @@ declare interface BoardTask {
   description?: string;
   parent?: string;
   links?: Array<{ key: string; summary: string; type: string }>;
+  storyPoints?: number | null;
 }
 
 // Jira API 类型
@@ -175,6 +176,21 @@ declare interface JiraAPI {
     success: false;
     error: string;
     code?: string;
+  }>;
+  
+  /**
+   * 更新 Issue 字段（故事点、截止日期）
+   * @param key 任务 Key
+   * @param fields 要更新的字段 { storyPoints?: number; dueDate?: string }
+   */
+  updateIssue: (key: string, fields: { 
+    storyPoints?: number | null; 
+    dueDate?: string | null;
+  }) => Promise<{ 
+    success: true;
+  } | { 
+    success: false;
+    error: string;
   }>;
 }
 

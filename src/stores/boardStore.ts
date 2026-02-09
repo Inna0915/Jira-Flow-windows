@@ -22,6 +22,8 @@ export interface BoardTask {
   description?: string;
   parent?: string;
   links?: Array<{ key: string; summary: string; type: string }>;
+  // 故事点
+  storyPoints?: number | null;
   // 调试字段（可选）
   assignee_name?: string; // 后端原始字段（调试用）
   assignee_avatar?: string; // 后端原始字段（调试用）
@@ -114,6 +116,7 @@ interface BoardState {
   fetchTasks: () => Promise<void>;
   syncWithJira: (fullSync?: boolean) => Promise<void>;
   updateTaskColumn: (taskKey: string, columnId: string) => Promise<boolean>;
+  updateTask: (taskKey: string, updates: Partial<BoardTask>) => void;
 }
 
 /**
@@ -508,5 +511,17 @@ export const useBoardStore = create<BoardState>((set, get) => ({
       console.error('[BoardStore] Failed to update task column:', err);
       return false;
     }
+  },
+  
+  updateTask: (taskKey, updates) => {
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.key === taskKey ? { ...task, ...updates } : task
+      ),
+      // 如果当前选中的任务是正在更新的任务，也更新选中状态
+      selectedTask: state.selectedTask?.key === taskKey 
+        ? { ...state.selectedTask, ...updates } 
+        : state.selectedTask,
+    }));
   },
 }));

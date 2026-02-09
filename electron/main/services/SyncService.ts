@@ -47,6 +47,8 @@ interface AgileIssue {
     duedate?: string;
     // Planned End Date 自定义字段
     customfield_10329?: string;
+    // Story Points 自定义字段（字段 ID 从设置获取）
+    [storyPointsField: string]: any;
     priority?: {
       name: string;
       id: string;
@@ -192,6 +194,7 @@ export interface TaskRecord {
   assignee_avatar: string | null;
   due_date: string | null;
   priority: string | null;
+  story_points: number | null;
   updated_at: string | null;
   synced_at: number;
   raw_json: string;
@@ -219,6 +222,7 @@ export interface BoardTask {
   description?: string;
   parent?: string;
   links?: Array<{ key: string; summary: string; type: string }>;
+  storyPoints?: number | null;
 }
 
 /**
@@ -465,8 +469,9 @@ export class SyncService {
       const maxResults = 100;
       let total = 0;
 
-      // 显式请求字段（包含 Planned End Date 自定义字段）
-      const fields = 'summary,status,assignee,priority,issuetype,sprint,created,updated,description,parent,issuelinks,customfield_10329,duedate';
+      // 显式请求字段（包含 Planned End Date 和 Story Points 自定义字段）
+      const storyPointsField = settingsDB.get('jira_storyPointsField') || 'customfield_10016';
+      const fields = `summary,status,assignee,priority,issuetype,sprint,created,updated,description,parent,issuelinks,customfield_10329,duedate,${storyPointsField}`;
       
       // 构建 JQL：只获取分配给当前用户的任务
       const jql = username ? `assignee="${username}"` : undefined;
@@ -552,7 +557,8 @@ export class SyncService {
       let total = 0;
 
       // 显式请求字段（包含 Planned End Date 自定义字段）
-      const fields = 'summary,status,assignee,priority,issuetype,sprint,created,updated,description,parent,issuelinks,customfield_10329,duedate';
+      const storyPointsField = settingsDB.get('jira_storyPointsField') || 'customfield_10016';
+      const fields = `summary,status,assignee,priority,issuetype,sprint,created,updated,description,parent,issuelinks,customfield_10329,duedate,${storyPointsField}`;
       
       // 构建 JQL：只获取分配给当前用户的任务
       const jql = username ? `assignee="${username}"` : undefined;
@@ -645,12 +651,17 @@ export class SyncService {
     
     const priority = issue.fields?.priority?.name || null;
     const updatedAt = issue.fields?.updated || new Date().toISOString();
+    
+    // 提取 Story Points（从配置的自定义字段）
+    const storyPointsField = settingsDB.get('jira_storyPointsField') || 'customfield_10016';
+    const storyPoints = (issue.fields as any)?.[storyPointsField] ?? null;
 
     console.log(`[Mapping] ${issue.key} extracted:`, {
       summary: summary.substring(0, 30),
       assignee: assigneeName || 'Unassigned',
       priority: priority || 'None',
       dueDate: dueDate || 'None',
+      storyPoints: storyPoints ?? 'None',
     });
 
     return {
@@ -665,6 +676,7 @@ export class SyncService {
       assignee_avatar: assigneeAvatar,
       due_date: dueDate,
       priority,
+      story_points: storyPoints,
       updated_at: updatedAt,
       synced_at: syncTimestamp,
       raw_json: JSON.stringify(issue),
@@ -1082,6 +1094,7 @@ export class SyncService {
           description,
           parent,
           links,
+          storyPoints: record.story_points,
           source: record.source || 'JIRA',
         };
       });

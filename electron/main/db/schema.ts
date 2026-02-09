@@ -135,7 +135,9 @@ function initializeSchema(): void {
       updated_at TEXT,
       synced_at INTEGER,
       raw_json TEXT,
-      source TEXT DEFAULT 'JIRA'
+      source TEXT DEFAULT 'JIRA',
+      description TEXT,
+      story_points REAL
     )
   `);
   
@@ -154,6 +156,14 @@ function initializeSchema(): void {
   } catch (e) {
     console.log('[Database] Migrating t_tasks: adding description column');
     db.exec(`ALTER TABLE t_tasks ADD COLUMN description TEXT`);
+  }
+
+  // 迁移：为现有任务添加 story_points 字段（如果不存在）
+  try {
+    db.prepare(`SELECT story_points FROM t_tasks LIMIT 1`).get();
+  } catch (e) {
+    console.log('[Database] Migrating t_tasks: adding story_points column');
+    db.exec(`ALTER TABLE t_tasks ADD COLUMN story_points REAL`);
   }
 
   // 2. 工作日志表
@@ -248,14 +258,14 @@ export const tasksDB = {
     const stmt = getDatabase().prepare(`
       INSERT OR REPLACE INTO t_tasks 
       (key, summary, status, issuetype, sprint, sprint_state, mapped_column, 
-       assignee_name, assignee_avatar, due_date, priority, updated_at, synced_at, raw_json, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       assignee_name, assignee_avatar, due_date, priority, updated_at, synced_at, raw_json, source, description, story_points)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       task.key, task.summary, task.status, task.issuetype, task.sprint,
       task.sprint_state, task.mapped_column, task.assignee_name, task.assignee_avatar,
       task.due_date, task.priority, task.updated_at, task.synced_at, task.raw_json,
-      task.source || 'JIRA'
+      task.source || 'JIRA', task.description || null, task.story_points || null
     );
   },
   getAll(): any[] {
@@ -274,6 +284,31 @@ export const tasksDB = {
   clearAll(): { deletedCount: number } {
     const result = getDatabase().prepare('DELETE FROM t_tasks').run();
     return { deletedCount: result.changes };
+  },
+  // 更新任务字段（用于从看板直接编辑）
+  updateTaskFields(key: string, fields: { story_points?: number; due_date?: string }): void {
+    const sets: string[] = [];
+    const values: any[] = [];
+    
+    if (fields.story_points !== undefined) {
+      sets.push('story_points = ?');
+      values.push(fields.story_points);
+    }
+    if (fields.due_date !== undefined) {
+      sets.push('due_date = ?');
+      values.push(fields.due_date);
+    }
+    
+    if (sets.length === 0) return;
+    
+    sets.push('updated_at = ?');
+    values.push(new Date().toISOString());
+    values.push(key);
+    
+    const stmt = getDatabase().prepare(`
+      UPDATE t_tasks SET ${sets.join(', ')} WHERE key = ?
+    `);
+    stmt.run(...values);
   },
   // 创建个人任务
   createPersonal(task: {

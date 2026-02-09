@@ -12,6 +12,7 @@ interface SwimlaneProps {
   onToggle: () => void;
   getTasksForColumn: (columnId: string) => BoardTask[];
   onTaskClick: (task: BoardTask) => void;
+  onTaskUpdate?: (task: BoardTask, updates: { storyPoints?: number | null; dueDate?: string | null }) => void;
   visibleColumns: string[];
   columnWidthClass?: string;
 }
@@ -23,6 +24,7 @@ export function Swimlane({
   onToggle, 
   getTasksForColumn,
   onTaskClick,
+  onTaskUpdate,
   visibleColumns,
   columnWidthClass = 'flex-1 min-w-[280px] max-w-[400px] flex-shrink-0 border-r border-[#DFE1E6]'
 }: SwimlaneProps) {
@@ -148,7 +150,7 @@ export function Swimlane({
                                   ...provided.draggableProps.style,
                                 }}
                               >
-                                <TaskCard task={task} onClick={onTaskClick} />
+                                <TaskCard task={task} onClick={onTaskClick} onUpdate={onTaskUpdate} />
                               </div>
                             )}
                           </Draggable>

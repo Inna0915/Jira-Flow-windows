@@ -93,6 +93,14 @@ const jiraAPI = {
    */
   transitionIssueByColumn: (key, targetColumn) =>
     ipcRenderer.invoke('jira:transition-issue-by-column', { key, targetColumn }),
+  
+  /**
+   * 更新 Issue 字段（故事点、截止日期）
+   * @param key 任务 Key
+   * @param fields 要更新的字段 { storyPoints?: number; dueDate?: string }
+   */
+  updateIssue: (key, fields) =>
+    ipcRenderer.invoke('jira:update-issue', { key, fields }),
 };
 
 // 看板 API（基于 SyncService 的高级操作）

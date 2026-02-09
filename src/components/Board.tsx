@@ -47,6 +47,7 @@ export function Board() {
     validateWorkflow,
     updateTaskColumn,
     syncWithJira,
+    updateTask,
   } = useBoardStore();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -617,6 +618,13 @@ export function Board() {
                         .filter(t => (t as any).source !== 'LOCAL')
                     }
                     onTaskClick={handleTaskClick}
+                    onTaskUpdate={(task, updates) => {
+                      // 乐观更新本地状态
+                      updateTask(task.key, {
+                        storyPoints: updates.storyPoints !== undefined ? updates.storyPoints : task.storyPoints,
+                        dueDate: updates.dueDate !== undefined ? updates.dueDate : task.dueDate,
+                      });
+                    }}
                   />
                 ))
               ) : (
