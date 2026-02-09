@@ -65,7 +65,7 @@ function App() {
         <div className="electron-drag flex h-12 items-center border-b border-[#DFE1E6] bg-white px-4">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-[#0052CC]">Jira Flow</span>
-            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v1.5.0</span>
+            <span className="rounded bg-[#F4F5F7] px-2 py-0.5 text-xs text-[#5E6C84]">v{__APP_VERSION__}</span>
           </div>
           
           {/* 外部链接按钮 */}

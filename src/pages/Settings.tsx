@@ -1087,7 +1087,7 @@ export function Settings() {
           </div>
         </div>
         <div className="pt-4 border-t border-gray-100 space-y-2">
-          <p><span className="font-medium text-gray-900">版本:</span> 1.5.0</p>
+          <p><span className="font-medium text-gray-900">版本:</span> {__APP_VERSION__}</p>
           <p><span className="font-medium text-gray-900">构建时间:</span> 2026-02-06</p>
           <p><span className="font-medium text-gray-900">技术栈:</span> Electron + React + TypeScript + TailwindCSS</p>
         </div>

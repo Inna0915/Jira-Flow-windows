@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+/** 由 vite.config.ts define 注入的应用版本号 */
+declare global {
+  const __APP_VERSION__: string;
+}
+
 // 数据库基础 API 类型
 declare interface DatabaseAPI {
   settings: {
