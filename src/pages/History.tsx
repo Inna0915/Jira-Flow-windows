@@ -116,6 +116,8 @@ export function History() {
   }, [activeTable, page, pageSize, searchColumn, searchValue]);
 
   useEffect(() => {
+    setColumns([]);
+    setSearchColumn('');
     loadSchema();
     setPage(1);
   }, [activeTable, loadSchema]);
@@ -168,6 +170,8 @@ export function History() {
   };
 
   const openEditModal = (row: any) => {
+    console.log('[History] Opening edit modal with row:', row);
+    console.log('[History] Available columns:', columns.map(c => c.name));
     setEditingRow(row);
     setEditForm({ ...row });
     setIsCreateMode(false);
@@ -180,6 +184,8 @@ export function History() {
     columns.forEach(col => {
       emptyForm[col.name] = '';
     });
+    console.log('[History] Opening create modal with columns:', columns.map(c => c.name));
+    console.log('[History] Edit form initialized:', emptyForm);
     setEditForm(emptyForm);
     setIsCreateMode(true);
   };
@@ -297,8 +303,10 @@ export function History() {
             <select
               value={searchColumn}
               onChange={(e) => setSearchColumn(e.target.value)}
-              className="px-3 py-1.5 bg-white border-2 border-gray-300 rounded-lg text-sm text-[#172B4D] font-medium focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC]"
+              disabled={columns.length === 0}
+              className="px-3 py-1.5 bg-white border-2 border-gray-300 rounded-lg text-sm text-[#172B4D] font-medium focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC] disabled:bg-gray-100 disabled:text-gray-400"
             >
+              {columns.length === 0 && <option value="">加载中...</option>}
               {columns.map(col => (
                 <option key={col.name} value={col.name}>{col.name}</option>
               ))}
@@ -489,24 +497,30 @@ export function History() {
             </div>
             
             <div className="flex-1 overflow-auto p-6 bg-white">
-              <div className="space-y-4">
-                {columns.map(col => (
-                  <div key={col.name}>
-                    <label className="block text-sm font-bold text-[#172B4D] mb-1.5">
-                      {col.name}
-                      <span className="ml-2 text-xs font-medium text-[#5E6C84]">({col.type})</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm[col.name] ?? ''}
-                      onChange={(e) => setEditForm({ ...editForm, [col.name]: e.target.value })}
-                      disabled={!isCreateMode && (col.name.toLowerCase() === 'key' || col.name.toLowerCase() === 'id' || col.name.toLowerCase() === 'rowid')}
-                      className="w-full px-3 py-2.5 bg-white border-2 border-gray-300 rounded-lg text-[#172B4D] font-medium focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC] disabled:bg-gray-100 disabled:text-[#5E6C84] placeholder:text-gray-400"
-                      placeholder={col.type === 'INTEGER' ? '输入数字' : '输入文本'}
-                    />
-                  </div>
-                ))}
-              </div>
+              {columns.length === 0 ? (
+                <div className="text-center text-[#5E6C84] py-8">
+                  正在加载表结构...
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {columns.map(col => (
+                    <div key={col.name}>
+                      <label className="block text-sm font-bold text-[#172B4D] mb-1.5">
+                        {col.name}
+                        <span className="ml-2 text-xs font-medium text-[#5E6C84]">({col.type})</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editForm[col.name] ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, [col.name]: e.target.value })}
+                        disabled={!isCreateMode && (col.name.toLowerCase() === 'key' || col.name.toLowerCase() === 'id' || col.name.toLowerCase() === 'rowid')}
+                        className="w-full px-3 py-2.5 bg-white border-2 border-gray-300 rounded-lg text-[#172B4D] font-medium focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC] disabled:bg-gray-100 disabled:text-[#5E6C84] placeholder:text-gray-400"
+                        placeholder={col.type === 'INTEGER' ? '输入数字' : '输入文本'}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t-2 border-gray-200 bg-gray-50">
