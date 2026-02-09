@@ -101,6 +101,13 @@ const jiraAPI = {
    */
   updateIssue: (key, fields) =>
     ipcRenderer.invoke('jira:update-issue', { key, fields }),
+  
+  /**
+   * 获取 Jira 附件（图片等）
+   * @param url 附件 URL（可以是相对路径）
+   */
+  getAttachment: (url) =>
+    ipcRenderer.invoke('jira:get-attachment', url),
 };
 
 // 看板 API（基于 SyncService 的高级操作）

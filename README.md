@@ -1,4 +1,4 @@
-# Jira Flow v1.6.0
+# Jira Flow v1.6.1
 
 一个本地优先的 Windows 桌面应用，用于同步 Jira 任务、可视化看板管理、记录工作日志，并生成 AI 驱动的周报。
 
@@ -23,6 +23,10 @@
   - 看板卡片上直接编辑 Story Points 和 Due Date
   - 支持自定义字段配置（Story Points Field ID、Due Date Field ID）
   - 实时同步到 Jira，乐观 UI 更新
+- **Jira HTML 描述渲染 (v1.6.1)**:
+  - 支持渲染 Jira 富文本描述（格式、表格、代码块等）
+  - 认证加载内嵌图片，解决相对路径和权限问题
+  - 单击图片放大查看，支持全屏浏览
 - **工作日志系统 (Phase 3)**:
   - **自动记录**: Story 拖拽到 DONE / Bug 拖拽到 VALIDATING 时自动记录
   - **手动记录**: 支持添加非 Jira 任务到工作日志

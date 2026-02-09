@@ -192,6 +192,20 @@ declare interface JiraAPI {
     success: false;
     error: string;
   }>;
+  
+  /**
+   * 获取 Jira 附件（图片等）
+   * @param url 附件 URL（可以是相对路径）
+   */
+  getAttachment: (url: string) => Promise<{
+    success: true;
+    base64: string;
+    mimeType: string;
+  } | {
+    success: false;
+    error: string;
+    status?: number;
+  }>;
 }
 
 // 看板 API 类型

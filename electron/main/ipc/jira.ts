@@ -1,4 +1,6 @@
 import { ipcMain } from 'electron';
+import axios from 'axios';
+import https from 'https';
 import { syncService, SyncService } from '../services/SyncService';
 import { JiraClientConfig } from '../services/JiraClient';
 import { settingsDB, workLogsDB } from '../db/schema';
@@ -343,6 +345,91 @@ export function registerJiraIPCs(): void {
         success: false, 
         error: `更新任务失败: ${String(error)}` 
       };
+    }
+  });
+
+  /**
+   * 获取 Jira 附件（图片等）
+   * payload: url (string) - 附件 URL，可能是相对路径
+   */
+  ipcMain.handle('jira:get-attachment', async (_, url: string) => {
+    try {
+      if (!url) {
+        return { success: false, error: 'URL is required' };
+      }
+
+      // 确保服务已初始化
+      if (!syncService.isConfigured()) {
+        const initialized = syncService.initializeFromDB();
+        if (!initialized) {
+          return { success: false, error: 'Jira 未配置' };
+        }
+      }
+
+      const client = syncService.getClient();
+      if (!client) {
+        return { success: false, error: 'Jira 客户端未初始化' };
+      }
+
+      // 获取 Jira 配置
+      const jiraHost = settingsDB.get('jira_host');
+      if (!jiraHost) {
+        return { success: false, error: 'Jira host not configured' };
+      }
+
+      // 处理相对路径 - 避免双斜杠
+      let fullUrl: string;
+      if (url.startsWith('http')) {
+        fullUrl = url;
+      } else {
+        // 移除 host 末尾的斜杠和 url 开头的斜杠，然后正确拼接
+        const host = jiraHost.replace(/\/$/, '');
+        const path = url.startsWith('/') ? url : `/${url}`;
+        fullUrl = `${host}${path}`;
+      }
+      console.log('[IPC] Fetching attachment:', fullUrl);
+
+      // 使用 SyncService 的内部 axios 客户端获取附件
+      // 需要重新创建一个用于二进制数据的客户端
+      const username = settingsDB.get('jira_username') || '';
+      const password = settingsDB.get('jira_password') || '';
+      const auth = Buffer.from(`${username}:${password}`).toString('base64');
+      
+      // 解析 host 用于 Referer
+      const hostUrl = new URL(jiraHost);
+      
+      const response = await axios.get(fullUrl, {
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+          'Referer': `${hostUrl.protocol}//${hostUrl.host}/`,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false,
+        }),
+        maxRedirects: 5,
+        // 确保抛出 HTTP 错误状态码
+        validateStatus: (status) => status >= 200 && status < 300,
+      });
+
+      const base64 = Buffer.from(response.data).toString('base64');
+      const mimeType = response.headers['content-type'] || 'application/octet-stream';
+
+      console.log('[IPC] Attachment fetched successfully:', { mimeType, size: base64.length });
+      return { success: true, base64, mimeType };
+    } catch (error) {
+      console.error('[IPC] Get attachment error:', error);
+      if (axios.isAxiosError(error)) {
+        return { 
+          success: false, 
+          error: `获取附件失败: ${error.message}`,
+          status: error.response?.status 
+        };
+      }
+      return { success: false, error: `获取附件失败: ${String(error)}` };
     }
   });
 

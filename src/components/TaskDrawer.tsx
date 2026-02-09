@@ -1,6 +1,7 @@
 import { X, Copy, ExternalLink, Calendar, User, Tag, Link2, Archive, Pencil } from 'lucide-react';
 import type { BoardTask } from '../stores/boardStore';
 import { Avatar } from './Avatar';
+import { JiraHtmlRenderer } from './JiraHtmlRenderer';
 import { toast } from 'sonner';
 
 interface TaskDrawerProps {
@@ -127,8 +128,8 @@ export function TaskDrawer({ task, isOpen, onClose, onArchive, onEdit }: TaskDra
           {/* 描述 */}
           <div className="mb-6">
             <h3 className="mb-2 text-sm font-semibold text-[#172B4D]">描述</h3>
-            <div className="rounded-lg border border-[#DFE1E6] bg-white p-3 text-sm text-[#172B4D]">
-              {task.description || '暂无描述'}
+            <div className="rounded-lg border border-[#DFE1E6] bg-white p-3">
+              <JiraHtmlRenderer html={task.description || ''} />
             </div>
           </div>
 
