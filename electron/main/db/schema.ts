@@ -1,15 +1,79 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
-import { join } from 'path';
+import { join, dirname, basename } from 'path';
+import * as fs from 'fs';
 
 let db: Database.Database | null = null;
+
+/**
+ * 检测是否为便携版运行
+ * 便携版特征：
+ * 1. 可执行文件名包含 "Portable"
+ * 2. 或存在同目录下的 .portable 标记文件
+ * 3. 或环境变量 PORTABLE=1
+ */
+function isPortableMode(): boolean {
+  try {
+    const exePath = process.execPath;
+    const exeName = basename(exePath).toLowerCase();
+    const exeDir = dirname(exePath);
+    
+    // 检查文件名是否包含 portable
+    if (exeName.includes('portable')) {
+      return true;
+    }
+    
+    // 检查是否存在 .portable 标记文件
+    const portableMarker = join(exeDir, '.portable');
+    if (fs.existsSync(portableMarker)) {
+      return true;
+    }
+    
+    // 检查环境变量
+    if (process.env.PORTABLE === '1' || process.env.PORTABLE_EXECUTABLE_DIR) {
+      return true;
+    }
+    
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * 获取数据库文件路径
+ * - 便携版：保存在 exe 同级目录的 data 文件夹中
+ * - 安装版：保存在系统用户数据目录
+ */
+function getDatabasePath(): string {
+  if (isPortableMode()) {
+    // 便携版：使用 exe 所在目录的 data 文件夹
+    const exeDir = dirname(process.execPath);
+    const dataDir = join(exeDir, 'data');
+    
+    // 确保 data 目录存在
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log('[Database] Created portable data directory:', dataDir);
+    }
+    
+    const dbPath = join(dataDir, 'jira-flow.db');
+    console.log('[Database] Portable mode detected, using:', dbPath);
+    return dbPath;
+  } else {
+    // 安装版：使用系统用户数据目录
+    const dbPath = join(app.getPath('userData'), 'jira-flow.db');
+    console.log('[Database] Standard mode, using:', dbPath);
+    return dbPath;
+  }
+}
 
 /**
  * 获取数据库实例（单例模式）
  */
 export function getDatabase(): Database.Database {
   if (!db) {
-    const dbPath = join(app.getPath('userData'), 'jira-flow.db');
+    const dbPath = getDatabasePath();
     console.log('[Database] Opening database at:', dbPath);
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
