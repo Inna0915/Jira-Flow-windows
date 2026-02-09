@@ -49,22 +49,34 @@ export function History() {
 
   // Load table schema
   const loadSchema = useCallback(async () => {
+    console.log(`[History] Loading schema for table: ${activeTable}`);
     try {
       const result = await window.electronAPI.database.query(
         `PRAGMA table_info(${activeTable})`
       );
-      if (result.success && Array.isArray(result.data)) {
-        setColumns(result.data.map((col: any) => ({
+      console.log('[History] Schema query result:', result);
+      
+      if (result.success && Array.isArray(result.data) && result.data.length > 0) {
+        const cols = result.data.map((col: any) => ({
           name: col.name,
           type: col.type
-        })));
+        }));
+        console.log('[History] Loaded columns:', cols);
+        setColumns(cols);
         // Set default search column to first column
-        if (result.data.length > 0 && !searchColumn) {
-          setSearchColumn(result.data[0].name);
+        if (!searchColumn) {
+          setSearchColumn(cols[0].name);
         }
+        return cols;
+      } else {
+        console.warn('[History] No columns found or query failed:', result);
+        toast.error('加载表结构失败: ' + (result.error || '无数据'));
+        return [];
       }
     } catch (error) {
-      console.error('Failed to load schema:', error);
+      console.error('[History] Failed to load schema:', error);
+      toast.error('加载表结构失败: ' + String(error));
+      return [];
     }
   }, [activeTable, searchColumn]);
 
@@ -173,12 +185,18 @@ export function History() {
     console.log('[History] Opening edit modal with row:', row);
     
     // Ensure columns are loaded
-    if (columns.length === 0) {
+    let cols = columns;
+    if (cols.length === 0) {
       console.log('[History] Columns not loaded, loading schema first...');
-      await loadSchema();
+      cols = await loadSchema();
     }
     
-    console.log('[History] Available columns:', columns.map(c => c.name));
+    if (cols.length === 0) {
+      toast.error('无法加载表结构，请重试');
+      return;
+    }
+    
+    console.log('[History] Available columns:', cols.map((c: any) => c.name));
     setEditingRow(row);
     setEditForm({ ...row });
     setIsCreateMode(false);
@@ -186,18 +204,24 @@ export function History() {
 
   const openCreateModal = async () => {
     // Ensure columns are loaded
-    if (columns.length === 0) {
+    let cols = columns;
+    if (cols.length === 0) {
       console.log('[History] Columns not loaded, loading schema first...');
-      await loadSchema();
+      cols = await loadSchema();
+    }
+    
+    if (cols.length === 0) {
+      toast.error('无法加载表结构，请重试');
+      return;
     }
     
     setEditingRow({});
     // Initialize empty form with all columns
     const emptyForm: Record<string, any> = {};
-    columns.forEach(col => {
+    cols.forEach((col: any) => {
       emptyForm[col.name] = '';
     });
-    console.log('[History] Opening create modal with columns:', columns.map(c => c.name));
+    console.log('[History] Opening create modal with columns:', cols.map((c: any) => c.name));
     console.log('[History] Edit form initialized:', emptyForm);
     setEditForm(emptyForm);
     setIsCreateMode(true);
