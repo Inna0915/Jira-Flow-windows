@@ -537,7 +537,7 @@ export class SyncService {
    * GET /rest/agile/1.0/board/{boardId}/backlog
    * 使用 jql 参数过滤分配给当前用户的任务
    */
-  public async fetchBacklogIssues(boardId: number): Promise<{ success: true; issues: AgileIssue[]; count: number } | { success: false; error: string }> {
+  public async fetchBacklogIssues(boardId: number, projectKey: string): Promise<{ success: true; issues: AgileIssue[]; count: number } | { success: false; error: string }> {
     if (!this.agileClient) {
       return { success: false, error: 'Agile 客户端未初始化' };
     }
@@ -549,7 +549,7 @@ export class SyncService {
         console.warn('[SyncService] No username configured, fetching all backlog issues');
       }
       
-      console.log(`[SyncService] Step 4: Fetching backlog for board ${boardId}, assignee: ${username || 'all'}`);
+      console.log(`[SyncService] Step 4: Fetching backlog for board ${boardId}, project: ${projectKey}, assignee: ${username || 'all'}`);
       
       const allIssues: AgileIssue[] = [];
       let startAt = 0;
@@ -560,8 +560,21 @@ export class SyncService {
       const storyPointsField = settingsDB.get('jira_storyPointsField') || 'customfield_10016';
       const fields = `summary,status,assignee,priority,issuetype,sprint,created,updated,description,parent,issuelinks,customfield_10329,duedate,${storyPointsField}`;
       
-      // 构建 JQL：只获取分配给当前用户的任务
-      const jql = username ? `assignee="${username}"` : undefined;
+      // 构建 JQL：过滤项目和分配给当前用户的任务
+      const conditions: string[] = [];
+      
+      // 添加项目过滤
+      if (projectKey) {
+        conditions.push(`project="${projectKey}"`);
+      }
+      
+      // 添加负责人过滤
+      if (username) {
+        conditions.push(`assignee="${username}"`);
+      }
+      
+      // 组合 JQL 条件
+      const jql = conditions.length > 0 ? conditions.join(' AND ') : undefined;
       if (jql) {
         console.log(`[SyncService] Using JQL filter for backlog: ${jql}`);
       }
@@ -885,7 +898,7 @@ export class SyncService {
     }
 
     // Step 4: 获取 Backlog 任务
-    const backlogResult = await this.fetchBacklogIssues(boardResult.boardId);
+    const backlogResult = await this.fetchBacklogIssues(boardResult.boardId, projectKey);
     let backlogIssues: AgileIssue[] = [];
     if (backlogResult.success) {
       backlogIssues = backlogResult.issues;
