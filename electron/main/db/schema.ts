@@ -14,28 +14,36 @@ let db: Database.Database | null = null;
  */
 function isPortableMode(): boolean {
   try {
-    const exePath = process.execPath;
+    // 使用 app.getPath('exe') 获取实际的可执行文件路径
+    const exePath = app.getPath('exe');
     const exeName = basename(exePath).toLowerCase();
     const exeDir = dirname(exePath);
     
+    console.log('[Database] Checking portable mode:', { exePath, exeName, exeDir });
+    
     // 检查文件名是否包含 portable
     if (exeName.includes('portable')) {
+      console.log('[Database] Portable mode detected: executable name contains "portable"');
       return true;
     }
     
     // 检查是否存在 .portable 标记文件
     const portableMarker = join(exeDir, '.portable');
     if (fs.existsSync(portableMarker)) {
+      console.log('[Database] Portable mode detected: .portable marker file exists');
       return true;
     }
     
     // 检查环境变量
     if (process.env.PORTABLE === '1' || process.env.PORTABLE_EXECUTABLE_DIR) {
+      console.log('[Database] Portable mode detected: environment variable set');
       return true;
     }
     
+    console.log('[Database] Standard mode: no portable indicators found');
     return false;
   } catch (e) {
+    console.error('[Database] Error checking portable mode:', e);
     return false;
   }
 }
@@ -48,22 +56,33 @@ function isPortableMode(): boolean {
 function getDatabasePath(): string {
   if (isPortableMode()) {
     // 便携版：使用 exe 所在目录的 data 文件夹
-    const exeDir = dirname(process.execPath);
+    const exeDir = dirname(app.getPath('exe'));
     const dataDir = join(exeDir, 'data');
     
+    console.log('[Database] Portable mode: exeDir =', exeDir);
+    console.log('[Database] Portable mode: dataDir =', dataDir);
+    
     // 确保 data 目录存在
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-      console.log('[Database] Created portable data directory:', dataDir);
+    try {
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log('[Database] Created portable data directory:', dataDir);
+      }
+    } catch (e) {
+      console.error('[Database] Failed to create data directory:', e);
+      // 如果创建失败，回退到用户数据目录
+      const fallbackPath = join(app.getPath('userData'), 'jira-flow.db');
+      console.log('[Database] Fallback to userData:', fallbackPath);
+      return fallbackPath;
     }
     
     const dbPath = join(dataDir, 'jira-flow.db');
-    console.log('[Database] Portable mode detected, using:', dbPath);
+    console.log('[Database] Portable mode: using dbPath =', dbPath);
     return dbPath;
   } else {
     // 安装版：使用系统用户数据目录
     const dbPath = join(app.getPath('userData'), 'jira-flow.db');
-    console.log('[Database] Standard mode, using:', dbPath);
+    console.log('[Database] Standard mode: using dbPath =', dbPath);
     return dbPath;
   }
 }
