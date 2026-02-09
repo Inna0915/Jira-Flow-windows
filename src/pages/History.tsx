@@ -249,7 +249,7 @@ export function History() {
   };
 
   const formatCellValue = (value: any) => {
-    if (value === null || value === undefined) return <span className="text-gray-400">NULL</span>;
+    if (value === null || value === undefined) return <span className="text-gray-400 italic">NULL</span>;
     if (typeof value === 'object') return JSON.stringify(value).substring(0, 50);
     return String(value).substring(0, 100);
   };
@@ -262,32 +262,32 @@ export function History() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Database className="w-5 h-5 text-[#0052CC]" />
-              <h1 className="text-lg font-semibold text-gray-900">历史数据管理</h1>
+              <h1 className="text-lg font-bold text-[#172B4D]">历史数据管理</h1>
             </div>
             
             {/* Table selector */}
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setActiveTable('t_tasks')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${
                   activeTable === 't_tasks'
-                    ? 'bg-white text-[#0052CC] shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-[#0052CC] shadow-sm border border-gray-200'
+                    : 'text-[#5E6C84] hover:text-[#172B4D]'
                 }`}
               >
                 <Table className="w-4 h-4 inline mr-1.5" />
-                任务表 (t_tasks)
+                任务表
               </button>
               <button
                 onClick={() => setActiveTable('t_work_logs')}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${
                   activeTable === 't_work_logs'
-                    ? 'bg-white text-[#0052CC] shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-white text-[#0052CC] shadow-sm border border-gray-200'
+                    : 'text-[#5E6C84] hover:text-[#172B4D]'
                 }`}
               >
                 <Table className="w-4 h-4 inline mr-1.5" />
-                日志表 (t_work_logs)
+                日志表
               </button>
             </div>
           </div>
@@ -297,33 +297,33 @@ export function History() {
             <select
               value={searchColumn}
               onChange={(e) => setSearchColumn(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC]"
+              className="px-3 py-1.5 bg-white border-2 border-gray-300 rounded-lg text-sm text-[#172B4D] font-medium focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC]"
             >
               {columns.map(col => (
                 <option key={col.name} value={col.name}>{col.name}</option>
               ))}
             </select>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6C84]" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="搜索..."
-                className="pl-9 pr-4 py-1.5 border border-gray-300 rounded-lg text-sm w-48 focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC]"
+                className="pl-9 pr-4 py-1.5 bg-white border-2 border-gray-300 rounded-lg text-sm text-[#172B4D] w-48 placeholder:text-gray-400 focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC]"
               />
             </div>
             <button
               onClick={handleSearch}
-              className="px-3 py-1.5 bg-[#0052CC] text-white rounded-lg text-sm hover:bg-[#0747A6] transition-colors"
+              className="px-3 py-1.5 bg-[#0052CC] text-white rounded-lg text-sm font-bold hover:bg-[#0747A6] transition-colors shadow-sm"
             >
               搜索
             </button>
             {searchValue && (
               <button
                 onClick={handleClearSearch}
-                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="p-1.5 text-[#5E6C84] hover:text-[#172B4D] hover:bg-gray-100 rounded-lg"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -333,14 +333,14 @@ export function History() {
             
             <button
               onClick={openCreateModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 transition-colors shadow-sm"
             >
               <Plus className="w-4 h-4" />
               新增
             </button>
             <button
               onClick={loadData}
-              className="p-1.5 text-gray-500 hover:text-[#0052CC] hover:bg-blue-50 rounded-lg"
+              className="p-1.5 text-[#5E6C84] hover:text-[#0052CC] hover:bg-blue-50 rounded-lg"
               title="刷新"
             >
               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -349,10 +349,10 @@ export function History() {
         </div>
         
         {/* Stats */}
-        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-4 text-sm text-gray-500">
-          <span>总记录: <strong className="text-gray-900">{data.total}</strong></span>
-          <span>当前页: <strong className="text-gray-900">{data.rows.length}</strong></span>
-          <span>表: <strong className="text-gray-900">{activeTable}</strong></span>
+        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-4 text-sm text-[#5E6C84]">
+          <span>总记录: <strong className="text-[#172B4D]">{data.total}</strong></span>
+          <span>当前页: <strong className="text-[#172B4D]">{data.rows.length}</strong></span>
+          <span>表: <strong className="text-[#172B4D]">{activeTable}</strong></span>
         </div>
       </div>
 
@@ -360,13 +360,13 @@ export function History() {
       <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 sticky top-0 z-10">
+            <thead className="bg-gray-100 sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700 border-b w-20">操作</th>
+                <th className="px-4 py-3 text-left font-bold text-[#172B4D] border-b-2 border-gray-200 w-24">操作</th>
                 {data.columns.map(col => (
                   <th 
                     key={col} 
-                    className="px-4 py-3 text-left font-semibold text-gray-700 border-b whitespace-nowrap"
+                    className="px-4 py-3 text-left font-bold text-[#172B4D] border-b-2 border-gray-200 whitespace-nowrap"
                   >
                     {col}
                   </th>
@@ -379,18 +379,18 @@ export function History() {
                   key={idx} 
                   className="border-b border-gray-100 hover:bg-blue-50/50 transition-colors"
                 >
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2.5">
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEditModal(row)}
-                        className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"
                         title="编辑"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(row)}
-                        className="p-1 text-red-600 hover:bg-red-100 rounded"
+                        className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
                         title="删除"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -398,7 +398,7 @@ export function History() {
                     </div>
                   </td>
                   {data.columns.map(col => (
-                    <td key={col} className="px-4 py-2 max-w-xs truncate" title={String(row[col])}>
+                    <td key={col} className="px-4 py-2.5 max-w-xs truncate text-[#172B4D] font-medium" title={String(row[col])}>
                       {formatCellValue(row[col])}
                     </td>
                   ))}
@@ -406,7 +406,7 @@ export function History() {
               ))}
               {data.rows.length === 0 && (
                 <tr>
-                  <td colSpan={data.columns.length + 1} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={data.columns.length + 1} className="px-4 py-12 text-center text-[#5E6C84] font-medium">
                     {loading ? '加载中...' : '暂无数据'}
                   </td>
                 </tr>
@@ -418,18 +418,18 @@ export function History() {
         {/* Pagination */}
         <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">
-              第 {page} / {totalPages} 页
+            <span className="text-sm text-[#5E6C84] font-medium">
+              第 <span className="text-[#172B4D] font-bold">{page}</span> / <span className="text-[#172B4D] font-bold">{totalPages}</span> 页
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">每页:</span>
+              <span className="text-sm text-[#5E6C84] font-medium">每页:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setPage(1);
                 }}
-                className="px-2 py-1 border border-gray-300 rounded text-sm"
+                className="px-2 py-1 bg-white border-2 border-gray-300 rounded text-sm text-[#172B4D] font-medium focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC]"
               >
                 <option value={10}>10</option>
                 <option value={20}>20</option>
@@ -443,31 +443,31 @@ export function History() {
             <button
               onClick={() => setPage(1)}
               disabled={page <= 1}
-              className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+              className="px-3 py-1.5 bg-white border-2 border-gray-300 rounded text-sm font-bold text-[#172B4D] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
             >
               首页
             </button>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="p-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+              className="p-1.5 bg-white border-2 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 text-[#172B4D]" />
             </button>
-            <span className="px-3 py-1 bg-[#0052CC] text-white rounded text-sm font-medium">
+            <span className="px-3 py-1.5 bg-[#0052CC] text-white rounded text-sm font-bold">
               {page}
             </span>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
-              className="p-1 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+              className="p-1.5 bg-white border-2 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-[#172B4D]" />
             </button>
             <button
               onClick={() => setPage(totalPages)}
               disabled={page >= totalPages}
-              className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+              className="px-3 py-1.5 bg-white border-2 border-gray-300 rounded text-sm font-bold text-[#172B4D] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
             >
               末页
             </button>
@@ -477,48 +477,48 @@ export function History() {
 
       {/* Edit/Create Modal */}
       {editingRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-2xl w-[600px] max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h2 className="text-lg font-semibold">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-white rounded-xl shadow-2xl w-[600px] max-h-[85vh] flex flex-col border border-gray-300">
+            <div className="flex items-center justify-between px-6 py-4 border-b-2 border-gray-200 bg-gray-50">
+              <h2 className="text-lg font-bold text-[#172B4D]">
                 {isCreateMode ? '新增记录' : '编辑记录'}
               </h2>
-              <button onClick={closeEditModal} className="p-1 hover:bg-gray-100 rounded">
+              <button onClick={closeEditModal} className="p-2 text-[#5E6C84] hover:text-[#172B4D] hover:bg-gray-200 rounded-lg transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1 overflow-auto p-6 bg-white">
               <div className="space-y-4">
                 {columns.map(col => (
                   <div key={col.name}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-bold text-[#172B4D] mb-1.5">
                       {col.name}
-                      <span className="ml-2 text-xs text-gray-400">({col.type})</span>
+                      <span className="ml-2 text-xs font-medium text-[#5E6C84]">({col.type})</span>
                     </label>
                     <input
                       type="text"
                       value={editForm[col.name] ?? ''}
                       onChange={(e) => setEditForm({ ...editForm, [col.name]: e.target.value })}
                       disabled={!isCreateMode && (col.name.toLowerCase() === 'key' || col.name.toLowerCase() === 'id' || col.name.toLowerCase() === 'rowid')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC] disabled:bg-gray-100 disabled:text-gray-500"
-                      placeholder={col.type === 'INTEGER' ? '数字' : '文本'}
+                      className="w-full px-3 py-2.5 bg-white border-2 border-gray-300 rounded-lg text-[#172B4D] font-medium focus:ring-2 focus:ring-[#0052CC] focus:border-[#0052CC] disabled:bg-gray-100 disabled:text-[#5E6C84] placeholder:text-gray-400"
+                      placeholder={col.type === 'INTEGER' ? '输入数字' : '输入文本'}
                     />
                   </div>
                 ))}
               </div>
             </div>
             
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t bg-gray-50">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t-2 border-gray-200 bg-gray-50">
               <button
                 onClick={closeEditModal}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="px-4 py-2 text-[#5E6C84] font-bold hover:text-[#172B4D] hover:bg-gray-200 rounded-lg transition-colors"
               >
                 取消
               </button>
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 px-4 py-2 bg-[#0052CC] text-white rounded-lg hover:bg-[#0747A6]"
+                className="flex items-center gap-2 px-4 py-2 bg-[#0052CC] text-white font-bold rounded-lg hover:bg-[#0747A6] transition-colors shadow-sm"
               >
                 <Save className="w-4 h-4" />
                 保存
