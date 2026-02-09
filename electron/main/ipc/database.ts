@@ -145,8 +145,9 @@ export function registerDatabaseIPCs(): void {
       const db = getDatabase();
       const stmt = db.prepare(sql);
       
-      // 判断是查询还是修改
-      if (sql.trim().toLowerCase().startsWith('select')) {
+      // 判断是查询还是修改（支持 SELECT 和 PRAGMA）
+      const lowerSql = sql.trim().toLowerCase();
+      if (lowerSql.startsWith('select') || lowerSql.startsWith('pragma')) {
         return { success: true, data: stmt.all(...params) };
       } else {
         return { success: true, data: stmt.run(...params) };
