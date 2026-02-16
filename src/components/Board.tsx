@@ -629,13 +629,6 @@ export function Board() {
                         .filter(t => (t as any).source !== 'LOCAL')
                     }
                     onTaskClick={handleTaskClick}
-                    onTaskUpdate={(task, updates) => {
-                      // 乐观更新本地状态
-                      updateTask(task.key, {
-                        storyPoints: updates.storyPoints !== undefined ? updates.storyPoints : task.storyPoints,
-                        dueDate: updates.dueDate !== undefined ? updates.dueDate : task.dueDate,
-                      });
-                    }}
                   />
                 ))
               ) : (
@@ -668,6 +661,15 @@ export function Board() {
         task={selectedTask}
         onArchive={viewMode === 'LOCAL' ? handleArchiveTask : undefined}
         onEdit={viewMode === 'LOCAL' ? handleEditTask : undefined}
+        onUpdate={(task, updates) => {
+          // 乐观更新本地状态
+          updateTask(task.key, {
+            storyPoints: updates.storyPoints !== undefined ? updates.storyPoints : task.storyPoints,
+            dueDate: updates.dueDate !== undefined ? updates.dueDate : task.dueDate,
+          });
+        }}
+        canEditStoryPoints={viewMode === 'JIRA'}
+        canEditDueDate={true}
       />
 
       {/* 创建/编辑任务模态框 */}
