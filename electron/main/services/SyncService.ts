@@ -105,12 +105,14 @@ export function normalizeStatus(rawStatus: string): string {
     return 'EXECUTION'; // Fix: Match Board Column ID
   }
 
-  // 2. EXECUTED (Build Done)
+  // 2. EXECUTED (Build Done, Submit for Test)
   if (
     (status.includes('build') && status.includes('done')) || 
     status.includes('executed') || 
     status.includes('构建完成') ||
-    status.includes('执行完成')
+    status.includes('执行完成') ||
+    status.includes('提交测试') ||  // Fix: Support "提交测试" transition
+    status.includes('提测')        // Fix: Support shorthand "提测"
   ) {
     return 'EXECUTED';
   }

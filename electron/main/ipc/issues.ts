@@ -78,11 +78,22 @@ export function registerIssueIPCs(): void {
         const targetKeywords = targetColumn.toLowerCase().split(/\s+/);
         
         for (const t of transitions) {
+          // 方法1: 直接关键词匹配
           const nameLower = t.name.toLowerCase();
-          const hasMatch = targetKeywords.some(keyword => nameLower.includes(keyword));
+          const hasDirectMatch = targetKeywords.some(keyword => nameLower.includes(keyword));
           
-          if (hasMatch) {
-            console.log(`   >>> FUZZY MATCH: "${t.name}" contains keywords from "${targetColumn}"`);
+          // 方法2: 使用 normalizeStatus 映射 transition 名称到列
+          const mappedFromTransition = normalizeStatus(t.name);
+          const hasMappedMatch = mappedFromTransition === targetColumn.toUpperCase();
+          
+          if (hasDirectMatch) {
+            console.log(`   >>> FUZZY MATCH (direct): "${t.name}" contains keywords from "${targetColumn}"`);
+            matchedTransition = t;
+            break;
+          }
+          
+          if (hasMappedMatch) {
+            console.log(`   >>> FUZZY MATCH (mapped): "${t.name}" -> ${mappedFromTransition} === ${targetColumn.toUpperCase()}`);
             matchedTransition = t;
             break;
           }
