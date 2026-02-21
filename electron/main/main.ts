@@ -12,6 +12,7 @@ import { registerSystemIPCs } from './ipc/system';
 import { registerReportIPCs } from './ipc/reports';
 import { registerTaskIPCs } from './ipc/tasks';
 import { syncService } from './services/SyncService';
+import { initUpdater } from './updater';
 
 // ESM 中 __dirname 替代方案
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -137,6 +138,9 @@ app.whenReady().then(() => {
   registerSystemIPCs();
   registerReportIPCs();
   registerTaskIPCs();
+
+  // 初始化自动更新器
+  initUpdater();
 
   // 初始化同步服务（从数据库加载配置）
   const jiraConfigured = syncService.initializeFromDB();

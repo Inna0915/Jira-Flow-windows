@@ -1128,6 +1128,139 @@ export function Settings() {
     </div>
   );
 
+  // ===== 自动更新状态 =====
+  type UpdateStatus = 'idle' | 'checking' | 'available' | 'latest' | 'downloading' | 'ready' | 'error';
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [updateVersion, setUpdateVersion] = useState<string>('');
+  const [updateProgress, setUpdateProgress] = useState<number>(0);
+  const [updateError, setUpdateError] = useState<string>('');
+  const [isDevMode, setIsDevMode] = useState<boolean>(false);
+
+  // 加载更新状态
+  useEffect(() => {
+    const loadUpdateStatus = async () => {
+      try {
+        const result = await window.electronAPI.updater.getStatus();
+        if (result.success) {
+          setUpdateStatus(result.status);
+          setUpdateVersion(result.version || '');
+          setUpdateProgress(result.progress || 0);
+          setUpdateError(result.error || '');
+          setIsDevMode(result.isDev || false);
+        }
+      } catch (error) {
+        console.error('Failed to load update status:', error);
+      }
+    };
+
+    loadUpdateStatus();
+
+    // 监听更新状态变化
+    const unsubscribeStatus = window.electronAPI.updater.onStatus((data) => {
+      setUpdateStatus(data.status);
+      if (data.version) setUpdateVersion(data.version);
+    });
+
+    // 监听下载进度
+    const unsubscribeProgress = window.electronAPI.updater.onProgress((data) => {
+      setUpdateProgress(data.percent);
+    });
+
+    // 监听错误
+    const unsubscribeError = window.electronAPI.updater.onError((data) => {
+      setUpdateStatus('error');
+      setUpdateError(data.message);
+    });
+
+    return () => {
+      unsubscribeStatus();
+      unsubscribeProgress();
+      unsubscribeError();
+    };
+  }, []);
+
+  // 检查更新
+  const handleCheckUpdate = async () => {
+    if (isDevMode) {
+      toast.info('开发模式下无法检查更新');
+      return;
+    }
+    
+    setUpdateError('');
+    try {
+      const result = await window.electronAPI.updater.check();
+      if (!result.success && result.error) {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('检查更新失败');
+    }
+  };
+
+  // 下载更新
+  const handleDownloadUpdate = async () => {
+    try {
+      const result = await window.electronAPI.updater.startDownload();
+      if (!result.success && result.error) {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('下载更新失败');
+    }
+  };
+
+  // 安装更新
+  const handleInstallUpdate = async () => {
+    try {
+      const result = await window.electronAPI.updater.quitAndInstall();
+      if (!result.success && result.error) {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('安装更新失败');
+    }
+  };
+
+  // 获取更新状态文本
+  const getUpdateStatusText = () => {
+    switch (updateStatus) {
+      case 'idle':
+        return '';
+      case 'checking':
+        return '正在检查更新...';
+      case 'available':
+        return `发现新版本 v${updateVersion}`;
+      case 'latest':
+        return `已是最新版本 v${__APP_VERSION__}`;
+      case 'downloading':
+        return `正在下载... ${updateProgress}%`;
+      case 'ready':
+        return '更新已下载，准备安装';
+      case 'error':
+        return `更新失败: ${updateError}`;
+      default:
+        return '';
+    }
+  };
+
+  // 获取更新状态颜色
+  const getUpdateStatusColor = () => {
+    switch (updateStatus) {
+      case 'latest':
+        return 'text-green-600';
+      case 'error':
+        return 'text-red-600';
+      case 'available':
+      case 'ready':
+        return 'text-blue-600';
+      case 'checking':
+      case 'downloading':
+        return 'text-amber-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
   const renderAboutContent = () => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
       <h2 className="text-2xl font-semibold text-gray-900 mb-6">关于</h2>
@@ -1141,10 +1274,78 @@ export function Settings() {
             <p className="text-gray-500">个人任务工作流</p>
           </div>
         </div>
-        <div className="pt-4 border-t border-gray-100 space-y-2">
+        <div className="pt-4 border-t border-gray-100 space-y-3">
           <p><span className="font-medium text-gray-900">版本:</span> {__APP_VERSION__}</p>
           <p><span className="font-medium text-gray-900">构建时间:</span> 2026-02-06</p>
           <p><span className="font-medium text-gray-900">技术栈:</span> Electron + React + TypeScript + TailwindCSS</p>
+          
+          {/* 自动更新区域 */}
+          <div className="pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-medium text-gray-900">自动更新:</span>
+              {isDevMode && (
+                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">开发模式</span>
+              )}
+            </div>
+            
+            {/* 状态显示 */}
+            {updateStatus !== 'idle' && (
+              <div className="mb-3">
+                <p className={`text-sm ${getUpdateStatusColor()}`}>
+                  {updateStatus === 'checking' && <RotateCcw className="inline h-4 w-4 mr-1.5 animate-spin" />}
+                  {getUpdateStatusText()}
+                </p>
+                
+                {/* 下载进度条 */}
+                {updateStatus === 'downloading' && (
+                  <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${updateProgress}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* 操作按钮 */}
+            <div className="flex gap-2">
+              {updateStatus === 'idle' || updateStatus === 'latest' || updateStatus === 'error' ? (
+                <button
+                  onClick={handleCheckUpdate}
+                  disabled={updateStatus === 'checking'}
+                  className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updateStatus === 'checking' ? (
+                    <>
+                      <RotateCcw className="h-4 w-4 animate-spin" />
+                      检查中...
+                    </>
+                  ) : (
+                    '检查更新'
+                  )}
+                </button>
+              ) : null}
+              
+              {updateStatus === 'available' && (
+                <button
+                  onClick={handleDownloadUpdate}
+                  className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  下载更新
+                </button>
+              )}
+              
+              {updateStatus === 'ready' && (
+                <button
+                  onClick={handleInstallUpdate}
+                  className="inline-flex items-center gap-1.5 rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                >
+                  重启并安装
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

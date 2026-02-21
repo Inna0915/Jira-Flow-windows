@@ -465,6 +465,73 @@ declare interface TaskAPI {
   }>;
 }
 
+// 自动更新 API 类型
+declare interface UpdaterAPI {
+  /**
+   * 检查更新
+   */
+  check: () => Promise<{ 
+    success: boolean; 
+    error?: string;
+    isDev?: boolean;
+  }>;
+  
+  /**
+   * 开始下载更新
+   */
+  startDownload: () => Promise<{ 
+    success: boolean; 
+    error?: string;
+    isDev?: boolean;
+  }>;
+  
+  /**
+   * 退出并安装更新
+   */
+  quitAndInstall: () => Promise<{ 
+    success: boolean; 
+    error?: string;
+    isDev?: boolean;
+  }>;
+  
+  /**
+   * 获取当前更新状态
+   */
+  getStatus: () => Promise<{
+    success: boolean;
+    status: 'idle' | 'checking' | 'available' | 'latest' | 'downloading' | 'ready' | 'error';
+    version?: string;
+    progress?: number;
+    error?: string;
+    isDev?: boolean;
+  }>;
+  
+  /**
+   * 监听更新状态变化
+   */
+  onStatus: (callback: (data: { 
+    status: 'idle' | 'checking' | 'available' | 'latest' | 'downloading' | 'ready' | 'error';
+    version?: string;
+    releaseDate?: string;
+    releaseNotes?: string;
+  }) => void) => () => void;
+  
+  /**
+   * 监听下载进度
+   */
+  onProgress: (callback: (data: { percent: number }) => void) => () => void;
+  
+  /**
+   * 监听更新错误
+   */
+  onError: (callback: (data: { message: string }) => void) => () => void;
+  
+  /**
+   * 移除所有监听器
+   */
+  removeAllListeners: () => void;
+}
+
 // Electron API 类型声明
 declare global {
   interface Window {
@@ -478,6 +545,7 @@ declare global {
       system: SystemAPI;
       ai: AIAPI;
       report: ReportAPI;
+      updater: UpdaterAPI;
     };
   }
 }

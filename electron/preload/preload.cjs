@@ -224,6 +224,68 @@ const reportAPI = {
   getByTypeAndRange: ({ type, startDate, endDate }) => ipcRenderer.invoke('report:get-by-type-and-range', { type, startDate, endDate }),
 };
 
+// 自动更新 API
+const updaterAPI = {
+  /**
+   * 检查更新
+   */
+  check: () => ipcRenderer.invoke('updater:check'),
+  
+  /**
+   * 开始下载更新
+   */
+  startDownload: () => ipcRenderer.invoke('updater:start-download'),
+  
+  /**
+   * 退出并安装更新
+   */
+  quitAndInstall: () => ipcRenderer.invoke('updater:quit-and-install'),
+  
+  /**
+   * 获取当前更新状态
+   */
+  getStatus: () => ipcRenderer.invoke('updater:get-status'),
+  
+  /**
+   * 监听更新状态变化
+   * @param callback 回调函数
+   */
+  onStatus: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('updater:status', handler);
+    return () => ipcRenderer.removeListener('updater:status', handler);
+  },
+  
+  /**
+   * 监听下载进度
+   * @param callback 回调函数
+   */
+  onProgress: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('updater:progress', handler);
+    return () => ipcRenderer.removeListener('updater:progress', handler);
+  },
+  
+  /**
+   * 监听更新错误
+   * @param callback 回调函数
+   */
+  onError: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('updater:error', handler);
+    return () => ipcRenderer.removeListener('updater:error', handler);
+  },
+  
+  /**
+   * 移除所有监听器
+   */
+  removeAllListeners: () => {
+    ipcRenderer.removeAllListeners('updater:status');
+    ipcRenderer.removeAllListeners('updater:progress');
+    ipcRenderer.removeAllListeners('updater:error');
+  },
+};
+
 // 将 API 暴露给渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
   database: databaseAPI,
@@ -235,6 +297,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ai: aiAPI,
   system: systemAPI,
   report: reportAPI,
+  updater: updaterAPI,
 });
 
 console.log('[Preload] Electron API exposed to window.electronAPI');
